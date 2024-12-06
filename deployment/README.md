@@ -8,6 +8,8 @@ This repository provides a comprehensive deployment framework for **FB-OCC** (Fe
 
 2. **Plugin Compilation**  
    Custom TensorRT plugin compilation for advanced operations not natively supported by TensorRT.
+   - **TensorRT-8.6.3.1** for x86 inference cases.
+   - **TensorRT-8.6.13.3** for **Drive Orin**.
 
 3. **TensorRT Engine Creation**  
    Scripts for building TensorRT engines from the ONNX model, enabling high-performance inference.

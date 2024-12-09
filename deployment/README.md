@@ -4,7 +4,10 @@ This repository provides a comprehensive deployment framework for **FB-OCC** (Fe
 
 ### Key Features:
 1. **ONNX Export**  
+
    Tools and scripts for converting your FB-OCC model into the ONNX format, serving as an intermediate representation for TensorRT optimization.
+
+   First, occupancy_path = 'data/nuscenes/gts' 
 
 2. **Plugin Compilation**  
    Custom TensorRT plugin compilation for advanced operations not natively supported by TensorRT.

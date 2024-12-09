@@ -6,9 +6,7 @@ import torch.nn.utils.rnn as rnn_utils
 from mmdet.models import DETECTORS
 from mmdet3d.models.fbbev.detectors.fbocc import FBOCC, generate_forward_transformation_matrix
 
-from deployment.models.utils.trt_register import TRT_FUNCTIONS
-
-
+from deployment.utils.trt_register import TRT_FUNCTIONS
 
 @DETECTORS.register_module()
 class FBOCCTRT(FBOCC):
@@ -189,12 +187,6 @@ class FBOCCTRT(FBOCC):
         history_bev = history_bev.to(curr_bev)
         history_bev = start_of_sequence.float() * curr_bev.repeat(1, self.history_cat_num, 1, 1, 1) + (1. - start_of_sequence.float()) * history_bev
         
-        import numpy as np
-        fb_ = np.load('/FB-BEV/data/' + 'start_of_sequence.npy')
-        fb_ = np.load('/FB-BEV/data/'+ 'history_bev_b4.npy'); print('history_bev_b4 Disrecpancy', ((fb_ - history_bev.detach().cpu().numpy())**2).mean()) 
-        fb_ = np.load('/FB-BEV/data/'+ 'history_sweep_time_b4.npy'); print('history_sweep_time_b4 Disrecpancy', ((fb_ - history_sweep_time.detach().cpu().numpy())**2).mean()) 
-        fb_ = np.load('/FB-BEV/data/'+ 'history_seq_ids_b4.npy'); print('history_seq_ids_b4 Disrecpancy', ((fb_ - history_seq_ids.detach().cpu().numpy())**2).mean()) 
-        
         n, c_, z, h, w = curr_bev.shape # 1 80 8 100 100
         
         tmp_bev = history_bev
@@ -203,7 +195,6 @@ class FBOCCTRT(FBOCC):
         
         sampled_history_bev = self.grid_sample(tmp_bev, 10. * grid.to(curr_bev.dtype).permute(0, 4, 3, 1, 2), 
                                                align_corners=True, interpolation_mode=self.interpolation_mode, padding_mode='zeros')
-        fb_ = np.load('/FB-BEV/data/'+ 'sampled_history_bev.npy'); print('sampled_history_bev Disrecpancy', ((fb_ - sampled_history_bev.detach().cpu().numpy())**2).mean()) 
         
         ## Update history
         # Add in current frame to features & timestep

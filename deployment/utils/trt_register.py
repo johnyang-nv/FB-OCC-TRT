@@ -69,7 +69,7 @@ class FuncRegistry:
         return _register
 
 
-OS_PATH = "TensorRT/lib/libtensorrt_ops.so"
+OS_PATH = "deployment/TensorRT/lib/libtensorrt_ops.so"
 OS_PATH = os.path.realpath(OS_PATH)
 ctypes.CDLL(OS_PATH)
 print(f"Loaded tensorrt plugins from {OS_PATH}")

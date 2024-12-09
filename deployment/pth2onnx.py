@@ -21,8 +21,8 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Convert PyTorch to ONNX")
     parser.add_argument("config", help="test config file path")
     parser.add_argument("--checkpoint", default='ckpts/fbocc-r50-cbgs_depth_16f_16x4_20e.pth', help="checkpoint file")
-    parser.add_argument("--data_dir", default='data/', help="checkpoint file")
-    parser.add_argument("--onnx_path", default='data/onnx', help="checkpoint file")
+    parser.add_argument("--data_dir", default='data/', help="path to save input data for TRT-engine creation")
+    parser.add_argument("--onnx_path", default='data/onnx', help="path to save onnx file")
     parser.add_argument("--opset_version", type=int)
     parser.add_argument("--cuda", default=True, type=bool)
     args = parser.parse_args()
@@ -84,6 +84,7 @@ def main():
     start_of_sequence = torch.BoolTensor([start_seq])
 
     data_path = args.data_dir
+    os.makedirs(args.onnx_path, exist_ok=True)
     
     imgs, sensor2egos, ego2globals, intrins, post_rots, post_trans, bda = inputs
 

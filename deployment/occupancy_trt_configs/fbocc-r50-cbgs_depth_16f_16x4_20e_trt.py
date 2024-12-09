@@ -35,7 +35,7 @@ history_cat_conv_out_channels = 160
 
 # Copyright (c) Phigent Robotics. All rights reserved.
 
-_base_ = ['../occupancy_configs/_base_/datasets/nus-3d.py', '../occupancy_configs/_base_/default_runtime.py']
+_base_ = ['../../occupancy_configs/_base_/datasets/nus-3d.py', '../../occupancy_configs/_base_/default_runtime.py']
 # Global
 # If point cloud range is changed, the models should also change their point
 # cloud range accordingly
@@ -147,7 +147,7 @@ model = dict(
         use_dcn=False,
     ),
     forward_projection=dict(
-        type='LSSViewTransformerFunction3DTRT',
+        type='LSSViewTransformerFunction3D',
         grid_config=grid_config,
         input_size=data_config['input_size'],
         downsample=16),

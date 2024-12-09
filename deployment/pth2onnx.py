@@ -1,11 +1,12 @@
 import os
 import numpy as np
 import argparse
+import torch
+from torch.onnx import OperatorExportTypes
 
 from mmcv import Config
 from mmcv.runner import load_checkpoint
 
-import torch
 import onnx_graphsurgeon as gs
 import onnx 
 
@@ -15,9 +16,6 @@ sys.path.append(".")
 
 from mmdet3d.models.builder import build_model
 from mmdet3d.datasets.builder import build_dataloader, build_dataset
-
-from torch.onnx import OperatorExportTypes
-
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Convert PyTorch to ONNX")
@@ -29,7 +27,6 @@ def parse_args():
     parser.add_argument("--cuda", default=True, type=bool)
     args = parser.parse_args()
     return args
-
 
 def main():
     args = parse_args()
@@ -44,14 +41,11 @@ def main():
         else:
             importlib.import_module(config.plugin)
 
-    output = os.path.split(args.config)[1].split(".")[0]
+    onnx_path = os.path.join(args.onnx_path, os.path.split(args.config)[1].split(".")[0] + ".onnx")
     dataset = build_dataset(cfg=config.data.val)
     loader = build_dataloader(
         dataset, samples_per_gpu=1, workers_per_gpu=1, shuffle=False, dist=False
     )
-
-    
-    
 
     # build the dataloader
     test_dataloader_default_args = dict(
@@ -90,7 +84,6 @@ def main():
     start_of_sequence = torch.BoolTensor([start_seq])
 
     data_path = args.data_dir
-    
     
     imgs, sensor2egos, ego2globals, intrins, post_rots, post_trans, bda = inputs
 
@@ -149,26 +142,17 @@ def main():
     input_names = list(inputs.keys())
     inputs = [inputs[key] for key in input_names]
 
+    # define outputs
     output_names=['pred_occupancy', 'output_history_bev', 'output_history_seq_ids', 'output_history_sweep_time']
 
     if args.cuda:
         model.eval().cuda()
 
-    orig_data = {}
-    for file in os.listdir(data_path):
-        if file.endswith('.npy'):
-            try: orig_data[file.split('.npy')[0]] = np.load(data_path+ file)
-            except: print(file, "couldn't be loaded")
-    
-    outputs = model(inputs)
-    pyt_out_path = data_path + 'output_full.dat'
-    outputs[0].detach().cpu().numpy().tofile(pyt_out_path)
-
     with torch.no_grad():
         torch.onnx.export(
             model,
             inputs,
-            os.path.join(args.onnx_path, output + ".onnx"),
+            onnx_path,
             opset_version=16,
             input_names=input_names,
             output_names=output_names,
@@ -185,61 +169,18 @@ def main():
                           'indexes':{2:'indexes_shape_0'},
                           'queries_rebatch':{2:'queries_rebatch_shape_0'}, 
                           'reference_points_rebatch':{2:'reference_points_rebatch_shape_0'},
-                          'bev_query_depth_rebatch':{2:'bev_query_depth_rebatch_shape_0'},
-            })
-    print('ONNX generated and saved at %s' % (os.path.join(args.onnx_path, output + ".onnx")))
+                          'bev_query_depth_rebatch':{2:'bev_query_depth_rebatch_shape_0'}})
+    print('ONNX generated and saved at %s' % (onnx_path))
+    convert_Reshape_node_allowzero(onnx_path)
 
-    
-    onnx_path=os.path.join(args.onnx_path, output + ".onnx")
+def convert_Reshape_node_allowzero(onnx_path):
     graph = gs.import_onnx(onnx.load(onnx_path))
-    convert_MultiScaleDeformableAttnTRT_node(graph)
-    convert_Reshape_node_allowzero(graph)
-    onnx.save(gs.export_onnx(graph), onnx_path)
-    
-    run_onnx_trt(onnx_path=os.path.join(args.onnx_path, output + ".onnx"), 
-                 trt_plugin_path = 'TensorRT/lib/libtensorrt_ops.so',
-                 trt_out_path = os.path.join(data_path, 'output_trt_full_new.json'),
-                 pyt_out_path=pyt_out_path,
-                 input_str=input_Str, 
-                 inputs_=inputs_)
-
-
-def convert_BevPoolv2TRT_node(onnx_path):
-    import onnx_graphsurgeon as gs
-    import onnx
-    graph = gs.import_onnx(onnx.load(onnx_path))
-    for node in graph.nodes:
-        if node.op == "PythonOp":
-            node.op = "BEVPoolV2TRT"  
-    onnx.save(gs.export_onnx(graph), onnx_path)
-
-def convert_MultiScaleDeformableAttnTRT_node(graph):
-    for node in graph.nodes:
-        if node.op == "PythonOp":
-            node.op = "MultiScaleDeformableAttnTRT"  
-    return graph
-
-def convert_Reshape_node_allowzero(graph):
     for node in graph.nodes:
         if node.op == "Reshape":
             node.attrs["allowzero"] = 1
+    onnx.save(gs.export_onnx(graph), onnx_path)
     return graph
-
-def run_onnx_trt(onnx_path, trt_plugin_path, trt_out_path, pyt_out_path, input_str, inputs_):
-    trt_engine_path = onnx_path.split('.onnx')[0] + '_fp32.engine'
-    cmd = 'TensorRT-8.6.3.1/bin/trtexec --onnx=%s --plugins=%s --exportOutput=%s --saveEngine=%s' % (onnx_path, trt_plugin_path, trt_out_path, trt_engine_path)
-    if input_str[-1] == ',':
-        input_str = input_str[:-1]
-
-    print(cmd + " --loadInputs=" + input_str + \
-          " --optShapes=ranks_bev:%s,ranks_depth:%s,ranks_feat:%s,interval_starts:%s,interval_lengths:%s,indexes:1x6x%s,queries_rebatch:1x6x%sx80,reference_points_rebatch:1x6x%sx4x2,bev_query_depth_rebatch:1x6x%sx4x1 \
-            --maxShapes=ranks_bev:210000,ranks_depth:210000,ranks_feat:210000,interval_starts:55000,interval_lengths:55000,indexes:1x6x4000,queries_rebatch:1x6x4000x80,reference_points_rebatch:1x6x4000x4x2,bev_query_depth_rebatch:1x6x4000x4x1 \
-            --minShapes=ranks_bev:200000,ranks_depth:200000,ranks_feat:200000,interval_starts:50000,interval_lengths:50000,indexes:1x6x1000,queries_rebatch:1x6x1000x80,reference_points_rebatch:1x6x1000x4x2,bev_query_depth_rebatch:1x6x1000sx4x1 " % \
-          (inputs_['ranks_bev'].shape[0], inputs_['ranks_depth'].shape[0], inputs_['ranks_feat'].shape[0], inputs_['interval_starts'].shape[0], inputs_['interval_lengths'].shape[0],
-            inputs_['indexes'].shape[2], inputs_['queries_rebatch'].shape[2], inputs_['reference_points_rebatch'].shape[2], inputs_['bev_query_depth_rebatch'].shape[2]))
     
-    
-
 if __name__ == "__main__":
     main()
 

@@ -172,3 +172,7 @@ data/sunrgbd/OFFICIAL_SUNRGBD/
 
 # Waymo evaluation
 mmdet3d/core/evaluation/waymo_utils/compute_detection_metrics_main
+
+
+# deployment
+deployment/commands.txt

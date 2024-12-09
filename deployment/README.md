@@ -1,6 +1,6 @@
 # FB-OCC TensorRT Deployment
 
-This repository provides a comprehensive deployment framework for **FB-OCC** (Feature-Based Object Classification) using **TensorRT**, supporting both **FP32** and **FP16** inference for optimized performance. It includes all necessary components to streamline the process from model export to efficient execution on TensorRT.
+This repository provides a comprehensive deployment framework for **FB-OCC** using **TensorRT**, supporting both **FP32** and **FP16** inference for optimized performance. It includes all necessary components to streamline the process from model export to efficient execution on TensorRT.
 
 ### Key Features:
 1. **ONNX Export**  

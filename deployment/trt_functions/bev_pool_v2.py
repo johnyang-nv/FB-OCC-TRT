@@ -3,13 +3,11 @@ from torch.autograd import Function
 
 from mmdet3d.ops.bev_pool_v2.bev_pool import QuickCumsumCuda
 
-
 def bev_pool_v2_gpu(depth, feat, ranks_depth, ranks_feat, ranks_bev, 
                     bev_feat_shape, interval_starts, interval_lengths):
     x = QuickCumsumCuda.apply(depth, feat, ranks_depth, ranks_feat, ranks_bev,
                               bev_feat_shape, interval_starts,
                               interval_lengths)
-    # x = x.permute(0, 4, 1, 2, 3).contiguous()
     return x
 
 class _BEVPoolV2(Function):
@@ -77,8 +75,6 @@ class _BEVPoolV2(Function):
     @staticmethod
     def backward(ctx, grad_output):
         raise NotImplementedError
-
-
 
 class _BEVPoolV2_2(_BEVPoolV2):
     @staticmethod

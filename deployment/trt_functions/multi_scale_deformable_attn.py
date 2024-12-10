@@ -9,7 +9,6 @@ ext_module = ext_loader.load_ext(
     "_ext", ["ms_deform_attn_backward", "ms_deform_attn_forward"]
 )
 
-
 class _MultiScaleDeformableAttnFunction(Function):
     @staticmethod
     def symbolic(
@@ -56,103 +55,7 @@ class _MultiScaleDeformableAttnFunction(Function):
             sampling_locations,
             attention_weights,
         )
-        return output#.view(value.shape[0], sampling_locations.shape[1], value.shape[2], value.shape[3])
-
-# class _MultiScaleDeformableAttnFunction(Function):
-#     @staticmethod
-#     def symbolic(
-#         g,
-#         value,
-#         value_spatial_shapes,
-#         reference_points,
-#         sampling_offsets,
-#         attention_weights,
-#     ):
-#         return g.op(
-#             "MultiScaleDeformableAttnTRT",
-#             value,
-#             value_spatial_shapes,
-#             reference_points,
-#             sampling_offsets,
-#             attention_weights,
-#         )
-
-#     @staticmethod
-#     def forward(
-#         ctx,
-#         value,
-#         value_spatial_shapes,
-#         reference_points,
-#         sampling_offsets,
-#         attention_weights,
-#     ):
-#         num_heads, channel = value.shape[2:]
-#         num_level = value_spatial_shapes.shape[0]
-#         bs, num_queries = reference_points.shape[:2]
-
-#         points_per_group = torch.div(
-#             reference_points.shape[-1], 2, rounding_mode="floor"
-#         )
-#         sampling_offsets = sampling_offsets.view(
-#             bs, num_queries, num_heads, num_level, -1, points_per_group, 2,
-#         )
-#         dim = sampling_offsets.shape[4] * num_level * 2 * points_per_group
-#         offset_normalizer = torch.stack(
-#             [value_spatial_shapes[..., 1], value_spatial_shapes[..., 0]], -1
-#         )
-#         sampling_locations = reference_points.view(
-#             bs, num_queries, 1, 1, 1, -1, 2
-#         ) + sampling_offsets / offset_normalizer.view(1, 1, 1, -1, 1, 1, 2)
-#         sampling_locations = sampling_locations.view(
-#             bs,
-#             num_queries,
-#             num_heads,
-#             num_level,
-#             torch.div(dim, num_level * 2, rounding_mode="floor"),
-#             2,
-#         )
-#         attention_weights = attention_weights.view(
-#             -1, num_level * torch.div(dim, num_level * 2, rounding_mode="floor")
-#         ).softmax(-1)
-#         attention_weights = attention_weights.view(
-#             bs,
-#             num_queries,
-#             num_heads,
-#             num_level,
-#             torch.div(dim, num_level * 2, rounding_mode="floor"),
-#         )
-#         im2col_step = value.shape[0]
-#         ctx.im2col_step = im2col_step
-
-#         ctx.fp16 = False
-#         if value.dtype == torch.float16:
-#             ctx.fp16 = True
-#             value = value.float()
-#             sampling_locations = sampling_locations.float()
-#             attention_weights = attention_weights.float()
-
-#         value_level_start_index = torch.zeros_like(value_spatial_shapes[:, 0])
-#         value_level_start_index[1:] = torch.cumsum(
-#             value_spatial_shapes[:, 0] * value_spatial_shapes[:, 1], dim=0
-#         )[:-1]
-
-#         output = ext_module.ms_deform_attn_forward(
-#             value,
-#             value_spatial_shapes,
-#             value_level_start_index,
-#             sampling_locations,
-#             attention_weights,
-#             im2col_step=ctx.im2col_step,
-#         ).view(bs, num_queries, num_heads, channel)
-#         ctx.save_for_backward(
-#             value,
-#             value_spatial_shapes,
-#             value_level_start_index,
-#             sampling_locations,
-#             attention_weights,
-#         )
-#         return output.half() if ctx.fp16 else output
-
+        return output
 
 class _MultiScaleDeformableAttnFunction2(_MultiScaleDeformableAttnFunction):
     @staticmethod
@@ -169,7 +72,6 @@ class _MultiScaleDeformableAttnFunction2(_MultiScaleDeformableAttnFunction):
             level_start_index, 
             sampling_locations, 
             attention_weights)
-
 
 _multi_scale_deformable_attn_gpu = _MultiScaleDeformableAttnFunction.apply
 _multi_scale_deformable_attn_gpu2 = _MultiScaleDeformableAttnFunction2.apply

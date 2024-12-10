@@ -19,6 +19,7 @@ namespace {
 constexpr char const *BP_PLUGIN_VERSION{"1"};
 constexpr char const *BP_PLUGIN_NAME{"BEVPoolV2TRT"};
 constexpr char const *BP_PLUGIN_NAME2{"BEVPoolV2TRT2"};
+constexpr int32_t BP_PLUGIN_SERIALIZATION_VERSION = 1;
 } // namespace
 
 PluginFieldCollection BEVPoolPluginCreator::mFC{};
@@ -33,6 +34,14 @@ BEVPoolPlugin::BEVPoolPlugin(int outWidth, int outHeight, bool use_h2)
 BEVPoolPlugin::BEVPoolPlugin(const void *serialData, size_t serialLength,
                              bool use_h2)
     : use_h2(use_h2) {
+  // Deserialize with added version control
+  int32_t version = 0;
+  deserialize_value(&serialData, &serialLength, &version);
+  
+  if (version != BP_PLUGIN_SERIALIZATION_VERSION) {
+    throw std::runtime_error("BEVPoolPlugin: Unsupported serialization version");
+  }
+
   deserialize_value(&serialData, &serialLength, &mOutWidth);
   deserialize_value(&serialData, &serialLength, &mOutHeight);
 }
@@ -45,75 +54,85 @@ DimsExprs BEVPoolPlugin::getOutputDimensions(
     int32_t outputIndex, const nvinfer1::DimsExprs *inputs, int32_t nbInputs,
     nvinfer1::IExprBuilder &exprBuilder) noexcept {
   nvinfer1::DimsExprs ret;
-  ret.nbDims = 4;
+  ret.nbDims = 5;
   ret.d[0] = exprBuilder.constant(1);
-  ret.d[1] = exprBuilder.constant(mOutHeight);
-  ret.d[2] = exprBuilder.constant(mOutWidth);
-  ret.d[3] = inputs[1].d[3];
-  return ret;
+  ret.d[1] = exprBuilder.constant(8);
+  ret.d[2] = exprBuilder.constant(mOutHeight); 
+  ret.d[3] = exprBuilder.constant(mOutWidth);
+  ret.d[4] = inputs[1].d[4];
+  return ret; 
 }
 
 int32_t BEVPoolPlugin::initialize() noexcept { return 0; }
 
 void BEVPoolPlugin::terminate() noexcept {}
 
-size_t
-BEVPoolPlugin::getWorkspaceSize(const nvinfer1::PluginTensorDesc *inputs,
-                                int32_t nbInputs,
-                                const nvinfer1::PluginTensorDesc *outputs,
-                                int32_t nbOutputs) const noexcept {
+size_t BEVPoolPlugin::getWorkspaceSize(
+    const nvinfer1::PluginTensorDesc *inputs, int32_t nbInputs,
+    const nvinfer1::PluginTensorDesc *outputs, int32_t nbOutputs) const noexcept {
   return 0;
 }
 
-int32_t BEVPoolPlugin::enqueue(const nvinfer1::PluginTensorDesc *inputDesc,
-                               const nvinfer1::PluginTensorDesc *outputDesc,
-                               const void *const *inputs, void *const *outputs,
-                               void *workspace, cudaStream_t stream) noexcept {
-  nvinfer1::Dims feat_dims = inputDesc[1].dims;     // bnhwc
-  nvinfer1::Dims interval_dims = inputDesc[5].dims; // n
-  nvinfer1::Dims out_dims = outputDesc[0].dims;     // bhwc
+int32_t BEVPoolPlugin::enqueue(
+    const nvinfer1::PluginTensorDesc *inputDesc,
+    const nvinfer1::PluginTensorDesc *outputDesc,
+    const void *const *inputs, void *const *outputs, void *workspace,
+    cudaStream_t stream) noexcept {
+  nvinfer1::Dims feat_dims = inputDesc[1].dims;
+  nvinfer1::Dims interval_dims = inputDesc[5].dims;
+  nvinfer1::Dims out_dims = outputDesc[0].dims;
   auto data_type = inputDesc[0].type;
-  int num_points =
-      out_dims.d[0] * out_dims.d[1] * out_dims.d[2] * out_dims.d[3];
-  switch (data_type) {
-  case nvinfer1::DataType::kFLOAT:
-    bev_pool_v2(feat_dims.d[3], interval_dims.d[0], num_points,
-                (float *)inputs[0], (float *)inputs[1], (int *)inputs[2],
-                (int *)inputs[3], (int *)inputs[4], (int *)inputs[5],
-                (int *)inputs[6], (float *)outputs[0], stream);
-    break;
-  case nvinfer1::DataType::kHALF:
-    if (use_h2) {
-      bev_pool_v2_h2(feat_dims.d[3], interval_dims.d[0], num_points,
-                     (__half *)inputs[0], (__half2 *)inputs[1],
-                     (int *)inputs[2], (int *)inputs[3], (int *)inputs[4],
-                     (int *)inputs[5], (int *)inputs[6], (__half2 *)outputs[0],
-                     stream);
-    } else {
-      bev_pool_v2(feat_dims.d[3], interval_dims.d[0], num_points,
-                  (__half *)inputs[0], (__half *)inputs[1], (int *)inputs[2],
+
+  int num_points = out_dims.d[0] * out_dims.d[1] * out_dims.d[2] * out_dims.d[3] * out_dims.d[4];
+
+  try {
+    switch (data_type) {
+    case nvinfer1::DataType::kFLOAT:
+      bev_pool_v2(feat_dims.d[4], interval_dims.d[0], num_points,
+                  (float *)inputs[0], (float *)inputs[1], (int *)inputs[2],
                   (int *)inputs[3], (int *)inputs[4], (int *)inputs[5],
-                  (int *)inputs[6], (__half *)outputs[0], stream);
+                  (int *)inputs[6], (float *)outputs[0], stream);
+      break;
+    case nvinfer1::DataType::kHALF:
+      if (use_h2) {
+        bev_pool_v2_h2(feat_dims.d[4], interval_dims.d[0], num_points,
+                       (__half *)inputs[0], (__half2 *)inputs[1],
+                       (int *)inputs[2], (int *)inputs[3], (int *)inputs[4],
+                       (int *)inputs[5], (int *)inputs[6], (__half2 *)outputs[0],
+                       stream);
+      } else {
+        bev_pool_v2(feat_dims.d[4], interval_dims.d[0], num_points,
+                    (__half *)inputs[0], (__half *)inputs[1], (int *)inputs[2],
+                    (int *)inputs[3], (int *)inputs[4], (int *)inputs[5],
+                    (int *)inputs[6], (__half *)outputs[0], stream);
+      }
+      break;
+    case nvinfer1::DataType::kINT8:
+      bev_pool_v2_int8(feat_dims.d[4], interval_dims.d[0], num_points,
+                       (int8_t *)inputs[0], inputDesc[0].scale, 
+                       (int8_4 *)inputs[1], inputDesc[1].scale,
+                       (int *)inputs[2], (int *)inputs[3], (int *)inputs[4], 
+                       (int *)inputs[5], (int *)inputs[6], (int8_4 *)outputs[0],
+                       outputDesc[0].scale, stream);
+      break;
+    default:
+      return 1;
     }
-    break;
-  case nvinfer1::DataType::kINT8:
-    bev_pool_v2_int8(
-        feat_dims.d[3], interval_dims.d[0], num_points, (int8_t *)inputs[0],
-        inputDesc[0].scale, (int8_4 *)inputs[1], inputDesc[1].scale,
-        (int *)inputs[2], (int *)inputs[3], (int *)inputs[4], (int *)inputs[5],
-        (int *)inputs[6], (int8_4 *)outputs[0], outputDesc[0].scale, stream);
-    break;
-  default:
+  } catch (const std::exception& e) {
+    caughtError(e);
     return 1;
   }
   return 0;
 }
 
 size_t BEVPoolPlugin::getSerializationSize() const noexcept {
-  return serialized_size(mOutWidth) + serialized_size(mOutHeight);
+  return serialized_size(BP_PLUGIN_SERIALIZATION_VERSION) +
+         serialized_size(mOutWidth) + 
+         serialized_size(mOutHeight);
 }
 
 void BEVPoolPlugin::serialize(void *buffer) const noexcept {
+  serialize_value(&buffer, BP_PLUGIN_SERIALIZATION_VERSION); // version control
   serialize_value(&buffer, mOutWidth);
   serialize_value(&buffer, mOutHeight);
 }
@@ -156,6 +175,10 @@ IPluginV2DynamicExt *BEVPoolPlugin::clone() const noexcept {
   }
   return nullptr;
 }
+
+// Remaining methods such as setPluginNamespace, getOutputDataType, 
+// configurePlugin, etc. remain similar with consistent error handling as needed.
+
 
 void BEVPoolPlugin::setPluginNamespace(const char *pluginNamespace) noexcept {
   mPluginNamespace = pluginNamespace;

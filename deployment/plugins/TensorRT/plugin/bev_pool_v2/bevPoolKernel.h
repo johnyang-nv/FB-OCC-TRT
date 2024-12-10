@@ -1,6 +1,3 @@
-//
-// Created by Derry Lin on 2023/5/11.
-//
 
 #ifndef TENSORRT_OPS_BEVPOOLKERNEL_H
 #define TENSORRT_OPS_BEVPOOLKERNEL_H

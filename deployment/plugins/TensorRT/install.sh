@@ -1,4 +1,4 @@
 cd build
-cmake .. -DCMAKE_TENSORRT_PATH=/usr/local/TensorRT
+cmake .. -DCMAKE_TENSORRT_PATH=/FB-BEV/TensorRT
 make -j$(nproc)
 make install

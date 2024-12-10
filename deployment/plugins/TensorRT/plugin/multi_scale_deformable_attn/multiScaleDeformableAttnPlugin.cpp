@@ -49,11 +49,14 @@ DimsExprs MultiScaleDeformableAttnPlugin::getOutputDimensions(
     int32_t outputIndex, const nvinfer1::DimsExprs *inputs, int32_t nbInputs,
     nvinfer1::IExprBuilder &exprBuilder) noexcept {
   DimsExprs outputDim;
-  outputDim.nbDims = 4;
+  outputDim.nbDims = 3;
   outputDim.d[0] = inputs[0].d[0];
   outputDim.d[1] = inputs[3].d[1];
-  outputDim.d[2] = inputs[0].d[2];
-  outputDim.d[3] = inputs[0].d[3];
+  outputDim.d[2] = exprBuilder.operation(
+    nvinfer1::DimensionOperation::kPROD, *inputs[0].d[2], *inputs[0].d[3]);
+
+  // outputDim.d[2] = inputs[0].d[2];
+  // outputDim.d[3] = inputs[0].d[3];
   return outputDim;
 }
 
@@ -72,67 +75,60 @@ int32_t MultiScaleDeformableAttnPlugin::enqueue(
     const nvinfer1::PluginTensorDesc *inputDesc,
     const nvinfer1::PluginTensorDesc *outputDesc, const void *const *inputs,
     void *const *outputs, void *workspace, cudaStream_t stream) noexcept {
-  float scale_value = inputDesc[0].scale, scale_ref = inputDesc[2].scale,
-        scale_offset = inputDesc[3].scale, scale_weight = inputDesc[4].scale,
-        scale_out = outputDesc[0].scale;
   Dims value_dims = inputDesc[0].dims;
   const int batch = value_dims.d[0];
   const int spatial_size = value_dims.d[1];
   const int num_heads = value_dims.d[2];
   const int channels = value_dims.d[3];
 
-  const int num_levels = inputDesc[1].dims.d[0];
-
-  const int points_per_group = inputDesc[2].dims.d[3] / 2;
-  const int num_query = inputDesc[3].dims.d[1];
-  const int num_point = inputDesc[4].dims.d[3] / num_levels;
-
+  const int num_levels = inputDesc[1].dims.d[0]; //spatial_shapes
+  const int num_query = inputDesc[3].dims.d[1]; // sampling_locations
+  const int num_point = inputDesc[3].dims.d[4];
+  
   auto data_type = inputDesc[0].type;
-  auto data_type_rp = inputDesc[2].type;
-  ASSERT(data_type == DataType::kFLOAT || data_type == DataType::kHALF ||
-         data_type == DataType::kINT8)
-  ASSERT(data_type_rp == DataType::kFLOAT || data_type_rp == DataType::kHALF)
 
   switch (data_type) {
   case DataType::kFLOAT:
     ms_deformable_im2col_cuda<float>(
-        (float *)inputs[0], (int32_t *)inputs[1], (float *)inputs[2],
-        (float *)inputs[3], (float *)inputs[4], batch, spatial_size, num_heads,
-        channels, num_levels, num_query, num_point, points_per_group,
-        (float *)outputs[0], stream);
+        (float *)inputs[0], 
+        (int *)inputs[1], 
+        (int *)inputs[2], 
+        (float *)inputs[3], 
+        (float *)inputs[4], 
+        batch, 
+        spatial_size, 
+        num_heads, 
+        channels, 
+        num_levels, 
+        num_query, 
+        num_point,
+        (float *)outputs[0], 
+        stream);
     break;
   case DataType::kHALF:
-    if (use_h2) {
-      ms_deformable_im2col_cuda_h2(
-          (__half2 *)inputs[0], (int32_t *)inputs[1], (__half2 *)inputs[2],
-          (__half2 *)inputs[3], (__half *)inputs[4], batch, spatial_size,
-          num_heads, channels, num_levels, num_query, num_point,
-          points_per_group, (__half2 *)outputs[0], stream);
-    } else {
-      ms_deformable_im2col_cuda<__half>(
-          (__half *)inputs[0], (int32_t *)inputs[1], (__half *)inputs[2],
+    ms_deformable_im2col_cuda<__half>(
+          (__half *)inputs[0], (int  *)inputs[1], (int *)inputs[2],
           (__half *)inputs[3], (__half *)inputs[4], batch, spatial_size,
           num_heads, channels, num_levels, num_query, num_point,
-          points_per_group, (__half *)outputs[0], stream);
-    }
+          (__half *)outputs[0], stream);
     break;
-  case DataType::kINT8:
-    if (data_type_rp == DataType::kHALF) {
-      ms_deformable_im2col_cuda_int8<__half2>(
-          (int8_4 *)inputs[0], scale_value, (int32_t *)inputs[1],
-          (__half2 *)inputs[2], (int8_4 *)inputs[3], scale_offset,
-          (int8_4 *)inputs[4], scale_weight, batch, spatial_size, num_heads,
-          channels, num_levels, num_query, num_point, points_per_group,
-          (int8_4 *)outputs[0], scale_out, stream);
-    } else {
-      ms_deformable_im2col_cuda_int8<float>(
-          (int8_4 *)inputs[0], scale_value, (int32_t *)inputs[1],
-          (float *)inputs[2], (int8_4 *)inputs[3], scale_offset,
-          (int8_4 *)inputs[4], scale_weight, batch, spatial_size, num_heads,
-          channels, num_levels, num_query, num_point, points_per_group,
-          (int8_4 *)outputs[0], scale_out, stream);
-    }
-    break;
+  // case DataType::kINT8:
+  //   if (data_type_rp == DataType::kHALF) {
+  //     ms_deformable_im2col_cuda_int8<__half2>(
+  //         (int8_4 *)inputs[0], scale_value, (int32_t *)inputs[1],
+  //         (__half2 *)inputs[2], (int8_4 *)inputs[3], scale_offset,
+  //         (int8_4 *)inputs[4], scale_weight, batch, spatial_size, num_heads,
+  //         channels, num_levels, num_query, num_point, points_per_group,
+  //         (int8_4 *)outputs[0], scale_out, stream);
+  //   } else {
+  //     ms_deformable_im2col_cuda_int8<float>(
+  //         (int8_4 *)inputs[0], scale_value, (int32_t *)inputs[1],
+  //         (float *)inputs[2], (int8_4 *)inputs[3], scale_offset,
+  //         (int8_4 *)inputs[4], scale_weight, batch, spatial_size, num_heads,
+  //         channels, num_levels, num_query, num_point, points_per_group,
+  //         (int8_4 *)outputs[0], scale_out, stream);
+  //   }
+  //   break;
   default:
     return 1;
   }
@@ -166,13 +162,7 @@ bool MultiScaleDeformableAttnPlugin::supportsFormatCombination(
     return inOut[pos].type == nvinfer1::DataType::kINT32 &&
            inOut[pos].format == nvinfer1::TensorFormat::kLINEAR;
   case 2:
-    if (inOut[0].type == nvinfer1::DataType::kFLOAT ||
-        inOut[0].type == nvinfer1::DataType::kHALF) {
-      return inOut[pos].type == inOut[0].type &&
-             inOut[pos].format == nvinfer1::TensorFormat::kLINEAR;
-    }
-    return (inOut[pos].type == nvinfer1::DataType::kHALF ||
-            inOut[pos].type == nvinfer1::DataType::kFLOAT) &&
+    return inOut[pos].type == nvinfer1::DataType::kINT32 &&
            inOut[pos].format == nvinfer1::TensorFormat::kLINEAR;
   case 3:
     return inOut[pos].type == inOut[0].type &&

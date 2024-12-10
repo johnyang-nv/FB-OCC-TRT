@@ -121,6 +121,7 @@ int32_t GridSamplerPlugin::enqueue(const nvinfer1::PluginTensorDesc *inputDesc,
   auto data_type = inputDesc[0].type;
   ASSERT(data_type == DataType::kFLOAT || data_type == DataType::kHALF ||
          data_type == DataType::kINT8)
+  
 
   switch (data_type) {
   case DataType::kFLOAT:
@@ -130,12 +131,15 @@ int32_t GridSamplerPlugin::enqueue(const nvinfer1::PluginTensorDesc *inputDesc,
                        mMode, mPaddingMode, mAlignCorners, stream);
     break;
   case DataType::kHALF:
+    printf("Entered case DataType::kHALF\n");
     if (use_h2) {
+      printf("Using __half2 for grid_sample\n");
       grid_sample<__half2>(
           (__half2 *)outputs[0], (__half2 *)inputs[0], (__half2 *)inputs[1],
           &(output_dims.d[0]), &(input_dims.d[0]), &(grid_dims.d[0]),
           input_dims.nbDims, mMode, mPaddingMode, mAlignCorners, stream);
     } else {
+      printf("Using __half for grid_sample\n");
       grid_sample<__half>(
           (__half *)outputs[0], (__half *)inputs[0], (__half *)inputs[1],
           &(output_dims.d[0]), &(input_dims.d[0]), &(grid_dims.d[0]),

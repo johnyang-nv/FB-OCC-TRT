@@ -43,6 +43,7 @@ def generate_forward_transformation_matrix(bda, img_meta_dict=None):
 
 @DETECTORS.register_module()
 class FBOCC(CenterPoint):
+
     def __init__(self, 
                  # BEVDet components
                  forward_projection=None,

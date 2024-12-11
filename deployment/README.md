@@ -93,6 +93,7 @@ TensorRT models demonstrate significantly lower latency compared to the original
 
  
 4. **TensorRT Engine Creation**  
+
    Run the following command to create the TensorRT engine:
    ```bash
    sh create_engine.sh 
@@ -104,6 +105,7 @@ TensorRT models demonstrate significantly lower latency compared to the original
    *(Note: Real data samples must be used when creating the engine, as the model utilizes dynamic input sizes for multiple inputs. Ensure the dataset path for inputs (e.g. \*.dat) is correctly configured to prevent errors during TensorRT engine creation.)*
 
 5. **Validation / Inference**  
+
    To validate the accuracy of the generated TensorRT engine, use the following command:
 
    ```bash

@@ -1,7 +1,7 @@
 # FB-OCC TensorRT Deployment on NVIDIA Drive Platform
 
 
-This repository provides a comprehensive deployment framework for **FB-OCC** on the **NVIDIA DRIVE platform** using **TensorRT**, supporting both `FP32` and `FP16` inference for optimized performance. It includes all necessary components to streamline the process from model export to efficient execution on TensorRT for NVIDIA DRIVE deployments.
+This repository provides a comprehensive `ONNX-to-TensorRT` deployment framework for **FB-OCC** on the **NVIDIA DRIVE platform** using **TensorRT**, supporting both `FP32` and `FP16` inference for optimized performance. It includes all necessary components to streamline the process from model export to efficient execution on TensorRT for NVIDIA DRIVE deployments.
 
 <div align="center">
 

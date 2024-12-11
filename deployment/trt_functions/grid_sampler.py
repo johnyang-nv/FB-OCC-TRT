@@ -3,7 +3,6 @@ from torch import Tensor
 from torch.types import _int, _bool
 from torch.autograd import Function
 
-
 class _GridSampler2D(Function):
     @staticmethod
     def symbolic(g, input, grid, interpolation_mode, padding_mode, align_corners):
@@ -76,7 +75,7 @@ class _GridSampler3D(Function):
         padding_mode: _int,
         align_corners: _bool,
     ):
-        grid = grid.permute(0, 2, 3, 4, 1)
+        grid = grid.permute(0, 2, 3, 4, 1)  
         grid_ = grid / 10
         output = torch.ops.aten.grid_sampler(
             input, grid_, interpolation_mode, padding_mode, align_corners

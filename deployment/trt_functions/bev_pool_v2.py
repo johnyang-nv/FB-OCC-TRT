@@ -1,6 +1,14 @@
+import torch
 from torch.autograd import Function
-from third_party.bev_mmdet3d.ops.bev_pool_v2 import bev_pool_v2_gpu
 
+from mmdet3d.ops.bev_pool_v2.bev_pool import QuickCumsumCuda
+
+def bev_pool_v2_gpu(depth, feat, ranks_depth, ranks_feat, ranks_bev, 
+                    bev_feat_shape, interval_starts, interval_lengths):
+    x = QuickCumsumCuda.apply(depth, feat, ranks_depth, ranks_feat, ranks_bev,
+                              bev_feat_shape, interval_starts,
+                              interval_lengths)
+    return x
 
 class _BEVPoolV2(Function):
     @staticmethod
@@ -14,7 +22,7 @@ class _BEVPoolV2(Function):
         interval_starts,
         interval_lengths,
         out_height,
-        out_width,
+        out_width
     ):
         return g.op(
             "BEVPoolV2TRT",
@@ -26,7 +34,7 @@ class _BEVPoolV2(Function):
             interval_starts,
             interval_lengths,
             out_height_i=out_height,
-            out_width_i=out_width,
+            out_width_i=out_width
         )
 
     @staticmethod
@@ -40,14 +48,13 @@ class _BEVPoolV2(Function):
         interval_starts,
         interval_lengths,
         out_height,
-        out_width,
+        out_width
     ):
-        """run forward."""
-        feat = feat.unsqueeze(0)
-        depth = depth.unsqueeze(0)
+        # feat = feat.unsqueeze(0)
+        # depth = depth.unsqueeze(0)
         bev_feat_shape = (
             depth.shape[0],
-            1,
+            8,
             out_height,
             out_width,
             feat.shape[-1],
@@ -62,14 +69,12 @@ class _BEVPoolV2(Function):
             interval_starts,
             interval_lengths,
         )
-        bev_feat = bev_feat.squeeze(2)
-        bev_feat = bev_feat.permute(0, 2, 3, 1)
+        print("TRT output shape should be", bev_feat.shape)
         return bev_feat
 
     @staticmethod
     def backward(ctx, grad_output):
         raise NotImplementedError
-
 
 class _BEVPoolV2_2(_BEVPoolV2):
     @staticmethod
@@ -111,8 +116,8 @@ def bev_pool_v2(
     ranks_bev,
     interval_starts,
     interval_lengths,
-    out_height=128,
-    out_width=128,
+    out_height=100,
+    out_width=100
 ):
     return _bev_pool_v2(
         depth,  # N,D,H,W
@@ -123,20 +128,20 @@ def bev_pool_v2(
         interval_starts.int(),
         interval_lengths.int(),
         out_height,
-        out_width,
+        out_width
     )
 
 
 def bev_pool_v2_2(
-    depth,  # N,D,H,W
+   depth,  # N,D,H,W
     feat,  # N,H,W,C
     ranks_depth,
     ranks_feat,
     ranks_bev,
     interval_starts,
     interval_lengths,
-    out_height=128,
-    out_width=128,
+    out_height=100,
+    out_width=100
 ):
     return _bev_pool_v2_2(
         depth,  # N,D,H,W
@@ -147,5 +152,5 @@ def bev_pool_v2_2(
         interval_starts.int(),
         interval_lengths.int(),
         out_height,
-        out_width,
+        out_width
     )

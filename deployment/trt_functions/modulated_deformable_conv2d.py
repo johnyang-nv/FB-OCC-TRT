@@ -9,7 +9,6 @@ ext_module = ext_loader.load_ext(
     "_ext", ["modulated_deform_conv_forward", "modulated_deform_conv_backward"]
 )
 
-
 class _ModulatedDeformableConv2dFunction(Function):
     @staticmethod
     def symbolic(

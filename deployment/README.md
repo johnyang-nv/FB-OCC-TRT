@@ -2,6 +2,19 @@
 
 This repository provides a comprehensive deployment framework for **FB-OCC** using **TensorRT**, supporting both **FP32** and **FP16** inference for optimized performance. It includes all necessary components to streamline the process from model export to efficient execution on TensorRT.
 
+
+
+|                      | mIoU           | Latency (ms) on A40  |  Latency (ms) on NVIDIA DRIVE Orin   |
+|---------------------------|----------------|--------------|--------|
+| FB-OCC-TensorRT_fp32      | 38.90          | 54.37        | 197.89 |
+| FB-OCC-TensorRT_fp16      | 38.86          | 34.26        | 138.62 |
+| FB-OCC-PyTorch (original) | 38.90 (reproduced)| 98.37    | -      |
+
+The FB-OCC model achieves consistent accuracy across `FP32` and `FP16` precision levels. 
+TensorRT models demonstrate significantly lower latency compared to the original PyTorch implementation, with `FP16` further reducing inference time. 
+
+
+
 1. **Prerequisites**
    
    Download the `TensorRT-8.6.13.3` tarball from the [NVIDIA TensorRT](https://developer.nvidia.com/tensorrt). TensorRT is available for free as a binary on multiple platforms or as a container on NVIDIA NGC. After downloading, follow the installation instructions provided on the page to set up TensorRT on your system.
@@ -55,10 +68,11 @@ This repository provides a comprehensive deployment framework for **FB-OCC** usi
 
    First, refer to the [FB-BEV Repository Installation Guide](docs/install.md) for detailed installation instructions for the FB-OCC repository.
 
-   Next, run the following command to generate the ONNX file for FB-OCC.
+   Next, run the following command to generate the ONNX file for FB-OCC. 
+
    *(Note: Real data samples must be used, and the dataset path thus must be correctly set to avoid errors during ONNX model creation.)*
    ```bash
-   python deployment/pth2onnx.py deployment/occupancy_trt_configs/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.py --trt_path <path_to_TensorRT> --trt_plugin_path <path_to_TensorRT_PlugIn>
+   python deployment/pth2onnx.py deployment/occupancy_trt_configs/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.py --trt_path <path_to_TensorRT> --trt_plugin_path <path_to_TensorRT_plugIn>
    ```
    Running the command above will generate a `create_engine.sh` file. This shell script executes a `trtexec` command with the specified inputs and additional TensorRT configuration flags.
 
@@ -78,22 +92,7 @@ This repository provides a comprehensive deployment framework for **FB-OCC** usi
    To validate the accuracy of the generated TensorRT engine, run the following command:
 
    ```bash
-   python tools/test.py ./deployment/occupancy_trt_configs/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.py ckpts/fbocc-r50-cbgs_depth_16f_16x4_20e.pth --trt_engine <path_to_TensorRT_engine>
+   python tools/test.py deployment/occupancy_trt_configs/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.py ckpts/fbocc-r50-cbgs_depth_16f_16x4_20e.pth --trt_engine <path_to_TensorRT_engine>
    ```
    
    Replace `<path_to_TensorRT_engine>` with the appropriate path to your TensorRT engine. For example, you can use `data/onnx/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.engine`.
-
-
-## FB-OCC TensorRT Performance Comparison
-
-|                      | mIoU           | Latency (ms) on A40  |  Latency (ms) on NVIDIA DRIVE Orin   |
-|---------------------------|----------------|--------------|--------|
-| FB-OCC-TensorRT_fp32      | 38.90          | 54.37        | 197.89 |
-| FB-OCC-TensorRT_fp16      | 38.86          | 34.26        | 138.62 |
-| FB-OCC-PyTorch (original) | 38.90 (reproduced)| 98.37    | -      |
-
-
-The FB-OCC model achieves consistent accuracy across `FP32` and `FP16` precision levels. 
-TensorRT models demonstrate significantly lower latency compared to the original PyTorch implementation, with `FP16` further reducing inference time. 
-
-TensorRT optimizations enhance computational efficiency, making the model suitable for real-time applications across different hardware platforms.

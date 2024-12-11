@@ -3,12 +3,16 @@
 
 This repository provides a comprehensive deployment framework for **FB-OCC** on the **NVIDIA DRIVE platform** using **TensorRT**, supporting both `FP32` and `FP16` inference for optimized performance. It includes all necessary components to streamline the process from model export to efficient execution on TensorRT for NVIDIA DRIVE deployments.
 
+<div align="center">
 
 |                      | mIoU           | Latency (ms) on A40  |  Latency (ms) on NVIDIA DRIVE Orin   |
 |---------------------------|----------------|--------------|--------|
 | FB-OCC-TensorRT_fp32      | 38.90          | 54.37        | 197.89 |
 | FB-OCC-TensorRT_fp16      | 38.86          | 34.26        | 138.62 |
 | FB-OCC-PyTorch (original) | 38.90 (reproduced)| 98.37    | -      |
+
+</div>
+
 
 The FB-OCC model achieves consistent accuracy across `FP32` and `FP16` precision levels. 
 TensorRT models demonstrate significantly lower latency compared to the original PyTorch implementation, with `FP16` further reducing inference time. 

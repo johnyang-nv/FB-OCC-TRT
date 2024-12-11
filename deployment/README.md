@@ -88,7 +88,7 @@ TensorRT models demonstrate significantly lower latency compared to the original
    
    *(Note: Real data samples must be used when creating the engine, as the model utilizes dynamic input sizes for multiple inputs. Ensure the dataset path for inputs (e.g. \*.dat) is correctly configured to prevent errors during TensorRT engine creation.)*
 
-5. **Inference Script**  
+5. **Validation / Inference**  
    To validate the accuracy of the generated TensorRT engine, run the following command:
 
    ```bash

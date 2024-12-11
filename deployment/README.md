@@ -72,6 +72,17 @@ TensorRT models demonstrate significantly lower latency compared to the original
 
    First, refer to the [FB-BEV Repository Installation Guide](docs/install.md) for detailed installation instructions for the FB-OCC repository.
 
+   To utilize the `trt_functions` from the [BEVFormer_tensorrt plugin](https://github.com/DerryHub/BEVFormer_tensorrt/tree/303d3140c14016047c07f9db73312af364f0dd7c/det2trt/models/functions), copy the necessary files into the current workspace and apply the prepared patch to adapt them for FB-OCC:
+
+   ```bash
+   # Copy the BEVFormer_tensorrt functions to the FB-OCC workspace
+   cp /path/to/BEVFormer_tensorrt/det2trt/models/functions/*.py /path/to/FB-BEV/deployment/trt_functions/
+
+   # Apply the patch in the `deployment/trt_functions` directory to modify the functions for FB-OCC
+   cd deployment/trt_functions/
+   git apply FB-OCC_fn-patch-on-derryhub_fn.patch
+   ```
+
    Next, run the following command to generate the ONNX file for FB-OCC. 
 
    *(Note: Real data samples must be used, and the dataset path thus must be correctly set to avoid errors during ONNX model creation.)*
@@ -86,17 +97,19 @@ TensorRT models demonstrate significantly lower latency compared to the original
    ```bash
    sh create_engine.sh 
    ```
-   *To create an FP16 model, include the `--fp16` flag along other options in the `trtexec` command.*
+   *(Note: To create an FP16 model, include the `--fp16` flag along other options in the `trtexec` command.)*
 
    When the command executes successfully, the TensorRT engine will be saved at `data/onnx/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.engine`.
    
    *(Note: Real data samples must be used when creating the engine, as the model utilizes dynamic input sizes for multiple inputs. Ensure the dataset path for inputs (e.g. \*.dat) is correctly configured to prevent errors during TensorRT engine creation.)*
 
 5. **Validation / Inference**  
-   To validate the accuracy of the generated TensorRT engine, run the following command:
+   To validate the accuracy of the generated TensorRT engine, use the following command:
 
    ```bash
    python tools/test.py occupancy_configs/fb_occ/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.py ckpts/fbocc-r50-cbgs_depth_16f_16x4_20e.pth --trt_engine <path_to_TensorRT_engine>
    ```
    
-   Replace `<path_to_TensorRT_engine>` with the appropriate path to your TensorRT engine. For example, you can use `data/onnx/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.engine`.
+   Replace `<path_to_TensorRT_engine>` with the appropriate path to your TensorRT engine file. For example, `data/onnx/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.engine`. 
+   
+   The results show that the FB-OCC TensorRT models achieve consistent accuracy, with `38.90` for `FP32` and `38.86` for `FP16` precision levels, closely matching the reproduced PyTorch accuracy of `38.90` from the original repository. Additionally, TensorRT models significantly outperform the PyTorch implementation in terms of latency, with `FP16` offering further reductions in inference time, as detailed in the table above. 

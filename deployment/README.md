@@ -21,7 +21,7 @@ TensorRT models demonstrate significantly lower latency compared to the original
 
    ```bash
    tar -xzvf <path_to_your_TensorRT_tarball>
-   export LD_LIBRARY_PATH=<path_to_your_TensorRT>:$LD_LIBRARY_PATH
+   export LD_LIBRARY_PATH=<path_to_your_TensorRT>/lib:$LD_LIBRARY_PATH
    ```
 
 2. **TensorRT Plugin Compilation**  

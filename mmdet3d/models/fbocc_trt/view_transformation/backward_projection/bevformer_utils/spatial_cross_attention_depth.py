@@ -10,20 +10,13 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-from mmcv.cnn import xavier_init, constant_init
-from mmcv.cnn.bricks.registry import ATTENTION                                      
-from mmcv.cnn.bricks.transformer import build_attention
-from mmcv.runner import force_fp32, auto_fp16
-from mmcv.runner.base_module import BaseModule, ModuleList, Sequential
+from mmcv.cnn.bricks.registry import ATTENTION         
+from mmcv.runner import force_fp32
 from mmcv.utils import ext_loader
 
 from mmdet3d.models.fbbev.view_transformation.backward_projection.bevformer_utils.spatial_cross_attention_depth \
     import DA_SpatialCrossAttention, DA_MSDeformableAttention
-from deployment.trt_functions.multi_scale_deformable_attn import (
-    multi_scale_deformable_attn,
-    multi_scale_deformable_attn2, 
-    multi_scale_deformable_attn_pytorch
-    )
+
 from deployment.utils.trt_register import TRT_FUNCTIONS
 
 ext_module = ext_loader.load_ext(

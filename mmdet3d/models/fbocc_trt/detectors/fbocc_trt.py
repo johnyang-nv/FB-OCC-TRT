@@ -180,14 +180,12 @@ class FBOCCTRT(FBOCC):
                          history_seq_ids,
                          grid
                          ):
-        curr_bev = curr_bev.permute(0, 1, 4, 2, 3) # n, c, z, h, w
-
-        ## Consider First batch as a start_of_sequence
-        ## Replace all the new sequences' positions in history with the curr_bev information
+        curr_bev = curr_bev.permute(0, 1, 4, 2, 3)
+        
         history_bev = history_bev.to(curr_bev)
         history_bev = start_of_sequence.float() * curr_bev.repeat(1, self.history_cat_num, 1, 1, 1) + (1. - start_of_sequence.float()) * history_bev
         
-        n, c_, z, h, w = curr_bev.shape # 1 80 8 100 100
+        n, c_, z, h, w = curr_bev.shape 
         
         tmp_bev = history_bev
         n, mc, z, h, w = tmp_bev.shape
@@ -202,25 +200,25 @@ class FBOCCTRT(FBOCC):
             
         sampled_history_bev = sampled_history_bev.reshape(n, mc, z, h, w)
         curr_bev = curr_bev.reshape(n, c_, z, h, w)
-        feats_cat = torch.cat([curr_bev, sampled_history_bev], dim=1) # B x (1 + T) * 80 x H x W or B x (1 + T) * 80 xZ x H x W 
-        
+        feats_cat = torch.cat([curr_bev, sampled_history_bev], dim=1)
+
         # Reshape and concatenate features and timestep
         feats_to_return = feats_cat.reshape(feats_cat.shape[0], self.history_cat_num + 1, self.single_bev_num_channels, *feats_cat.shape[2:]) # B x (1 + T) x 80 x H x W
         
         feats_to_return = torch.cat(
         [feats_to_return, history_sweep_time[:, :, None, None, None, None].repeat(
             1, 1, 1, *feats_to_return.shape[3:]) * self.history_cam_sweep_freq
-        ], dim=2) # B x (1 + T) x 81 x Z x H x W
+        ], dim=2) 
 
         # Time conv
         B, Tplus1, C, Z, H, W = feats_to_return.shape
         feats_to_return = self.history_keyframe_time_conv(feats_to_return.reshape(B*Tplus1, C, Z, H, W))
-        feats_to_return = feats_to_return.reshape(B, Tplus1, 80, Z, H, W) # B x (1 + T) x 80 xZ x H x W
+        feats_to_return = feats_to_return.reshape(B, Tplus1, 80, Z, H, W) 
         
         # Cat keyframes & conv
-        B, Tplus1, C, Z, H, W = feats_to_return.shape # 1 x 17 x 80 x 8 x 100 x 100
+        B, Tplus1, C, Z, H, W = feats_to_return.shape  
         feats_to_return = feats_to_return.reshape(B, Tplus1*C, Z, H, W)
-        feats_to_return = self.history_keyframe_cat_conv(feats_to_return) # B x C x H x W or B x C x Z x H x W
+        feats_to_return = self.history_keyframe_cat_conv(feats_to_return) 
         
         history_bev = feats_cat[:, :-self.single_bev_num_channels, ...].detach().clone()
         history_sweep_time = history_sweep_time[:, :-1]
@@ -289,8 +287,8 @@ class FBOCCTRT(FBOCC):
         intermediate = []
         ref_2d, bev_query_depth, reference_points_cam, per_cam_mask_list, indexes, \
             queries_rebatch, reference_points_rebatch, bev_query_depth_rebatch = bev_info
-        bev_query = bev_query.permute(1, 0, 2) # [10000, bs, 80]
-        bev_pos = bev_pos.permute(1, 0, 2) # [bs, 10000, 80]        
+        bev_query = bev_query.permute(1, 0, 2)
+        bev_pos = bev_pos.permute(1, 0, 2)
                 
         for lid, layer in enumerate(self.backward_projection.transformer.encoder.layers):
             output = layer(

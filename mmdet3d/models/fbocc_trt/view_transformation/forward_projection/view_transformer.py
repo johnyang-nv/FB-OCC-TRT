@@ -218,17 +218,17 @@ class LSSViewTransformerFunction3DTRT(LSSViewTransformerFunction3D):
                 int(self.grid_size[1]),
                 int(self.grid_size[2]),
             ]).to(feat)
-            # dummy = torch.cat(dummy.unbind(dim=2), 1)
+            
             return dummy
         feat = feat.permute(0, 1, 3, 4, 2)
         bev_feat_shape = (depth.shape[0], int(self.grid_size[2]),
                           int(self.grid_size[1]), int(self.grid_size[0]),
-                          feat.shape[-1])  # (B, Z, Y, X, C)
+                          feat.shape[-1])  
         bev_feat = bev_pool_v2(depth, feat, ranks_depth, ranks_feat, ranks_bev,
                                bev_feat_shape, interval_starts,
                                interval_lengths)
-        bev_feat = bev_feat.permute(0, 1, 3, 4, 2) # B, C, Z, X, Y- > B, C, X, Y, Z
-        # bev_feat = torch.cat(bev_feat.unbind(dim=2), 1)
+        bev_feat = bev_feat.permute(0, 1, 3, 4, 2) 
+        
         return bev_feat
 
     def voxel_pooling_prepare_v2(self, coor):
@@ -282,13 +282,12 @@ class LSSViewTransformerFunction3DTRT(LSSViewTransformerFunction3D):
             self.initial_flag = False
 
     def view_transform_core(self, cam_params, depth, tran_feat):
-       #  B, N, C, H, W = input[0].shape
 
         # Lift-Splat
         if self.accelerate:
-            feat = tran_feat # tran_feat.view(B, N, self.out_channels, H, W)
+            feat = tran_feat
             feat = feat.permute(0, 1, 3, 4, 2)
-            depth = depth #.view(B, N, self.D, H, W)
+            depth = depth 
             bev_feat_shape = (depth.shape[0], int(self.grid_size[2]),
                               int(self.grid_size[1]), int(self.grid_size[0]),
                               feat.shape[-1])  # (B, Z, Y, X, C)

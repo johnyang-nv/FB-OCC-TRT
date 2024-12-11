@@ -12,6 +12,7 @@ cd /FB-BEV/deployment/TensorRT/;source install.sh;cd /FB-BEV/
 sudo pip install -e .
 sudo pip install mmcv-full==1.5.2 
 sudo pip install mmdet==2.24.0 mmsegmentation==0.24.0 mmdet3d opencv-python==4.5.5.64 spconv yapf==0.40.1 onnx_graphsurgeon mmengine
+pip install numpy==1.23.5
 
 CUDA_LAUNCH_BLOCKING=1 CUDA_VISIBLE_DEVICES=0 python deployment/pth2onnx.py deployment/occupancy_trt_configs/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.py
 
@@ -91,7 +92,7 @@ sudo scp -r  johnyang@10.111.73.132:/home/johnyang/BEVFormer_tensorrt_jy/ /home/
 cd /home/labuser/johnyang/BEVFormer_tensorrt/
 docker build -t trt85 -f docker/Dockerfile .
 
-sudo scp -r johnyang@10.111.73.132:/home/johnyang/FB-OCC-TRT/ /home/labuser/johnyang/
+sudo scp -r johnyang@10.111.73.132:/home/johnyang/FB-BEV/ /home/labuser/johnyang/FB-BEV/
 sudo scp -r johnyang@10.111.73.132:/home/johnyang/FB-OCC-TRT/deployment/commands.txt /home/labuser/johnyang/FB-OCC-TRT/deployment/commands.txt
 sudo sshfs -o allow_other,default_permissions johnyang@10.111.73.132:/media/johnyang/a6bc9a10-9b5a-43f5-a9e5-5f8e87070e2b5/nuscenes /home/labuser/johnyang/nuscenes
 sudo sshfs -o allow_other,default_permissions johnyang@10.111.73.132:/media/johnyang/a6bc9a10-9b5a-43f5-a9e5-5f8e87070e2b5/occ3d_nuscenes/gts /home/labuser/johnyang/nuscenes/gts
@@ -152,6 +153,8 @@ sudo sshfs -o allow_other,default_permissions johnyang@10.111.73.132:/media/john
 docker run --gpus all -it --network=host --rm \
     -v /home/johnyang/fb-occ_tensorrt/:/FB-BEV/ \
     nvcr.io/drive/driveos-sdk/drive-agx-orin-linux-aarch64-sdk-build-x86:6.0.10.0-0009
+
+docker run --gpus all -it --network=host --rm -v /home/labuser/johnyang/BEVFormer_tensorrt/TensorRT:/workspace -v /home/labuser/johnyang/fb-occ_tensorrt/:/FB-BEV/ --privileged  -v /dev/bus/usb:/dev/bus/usb   nvcr.io/drive/driveos-sdk/drive-agx-orin-linux-aarch64-sdk-build-x86:6.0.10.0-0009
 
 
 

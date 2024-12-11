@@ -4,7 +4,7 @@ This repository provides a comprehensive deployment framework for **FB-OCC** usi
 
 1. **Prerequisites**
    
-   Download the TensorRT-8.6.13.3 tarball from the [NVIDIA TensorRT](https://developer.nvidia.com/tensorrt). TensorRT is available for free as a binary on multiple platforms or as a container on NVIDIA NGC™. After downloading, follow the installation instructions provided on the page to set up TensorRT on your system.
+   Download the `TensorRT-8.6.13.3` tarball from the [NVIDIA TensorRT](https://developer.nvidia.com/tensorrt). TensorRT is available for free as a binary on multiple platforms or as a container on NVIDIA NGC. After downloading, follow the installation instructions provided on the page to set up TensorRT on your system.
 
    ```bash
    tar -xzvf <path_to_your_TensorRT_tarball>
@@ -15,9 +15,6 @@ This repository provides a comprehensive deployment framework for **FB-OCC** usi
 
    FB-OCC utilizes operations that are not natively supported in TensorRT, such as `GridSample3D`, `BevPoolv2` and `Multi-Scale Deformable Attention`. These operations must be implemented as custom TensorRT plugins and compiled before using FB-OCC for inference. These plugins extend TensorRT’s capabilities, enabling the model to function as expected during optimization and deployment.
 
-   
-   ### Steps to Compile TensorRT Plugins for FB-OCC:
-
    The TensorRT plugins provided in the [BEVFormer_tensorrt](https://github.com/DerryHub/BEVFormer_tensorrt) repository can be modified to work with FB-OCC by applying the necessary tweaks.
 
    ```bash
@@ -26,7 +23,7 @@ This repository provides a comprehensive deployment framework for **FB-OCC** usi
    cd BEVFormer_tensorrt/
    ```
 
-   #### For NVIDIA DRIVE Orin with TensorRT
+   ### Cross-compile the plugin for DRIVE OS Linux on x86 host
 
    Cross-compiling is essential when the target platform, such as NVIDIA DRIVE OS Linux, differs from the development environment (x86 host). It allows developers to build ARM-compatible plugins on the x86 host by leveraging its computational power. 
    
@@ -71,7 +68,7 @@ This repository provides a comprehensive deployment framework for **FB-OCC** usi
    ```bash
    sh create_engine.sh 
    ```
-   To create an FP16 model, include the `--fp16` flag alongside other options in the `trtexec` command.
+   *To create an FP16 model, include the `--fp16` flag along other options in the `trtexec` command.*
 
    When the command executes successfully, the TensorRT engine will be saved at `data/onnx/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.engine`.
    

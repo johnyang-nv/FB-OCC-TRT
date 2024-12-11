@@ -1,0 +1,162 @@
+sudo docker login nvcr.io
+
+
+cd /home/johnyang/FB-BEV/
+docker build -t trt85 -f docker/Dockerfile .
+sudo docker run -it --shm-size 1024G --privileged --network=host --user root --gpus all  --rm -v /home/johnyang/fb-occ_tensorrt/:/FB-BEV/ -v /media/johnyang/a6bc9a10-9b5a-43f5-a9e5-5f8e87070e2b5/nuscenes:/FB-BEV/data/nuscenes/  \
+                                         -v /media/johnyang/a6bc9a10-9b5a-43f5-a9e5-5f8e87070e2b5/occ3d_nuscenes/gts:/FB-BEV/data/nuscenes/gts  trt85  /bin/bash
+
+
+cd /FB-BEV/deployment/TensorRT/;source install.sh;cd /FB-BEV/  
+
+sudo pip install -e .
+sudo pip install mmcv-full==1.5.2 
+sudo pip install mmdet==2.24.0 mmsegmentation==0.24.0 mmdet3d opencv-python==4.5.5.64 spconv yapf==0.40.1 onnx_graphsurgeon mmengine
+
+CUDA_LAUNCH_BLOCKING=1 CUDA_VISIBLE_DEVICES=0 python deployment/pth2onnx.py deployment/occupancy_trt_configs/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.py
+
+cd /FB-BEV/TensorRT/
+source install.sh
+cd /FB-BEV/  
+
+# python tools/test_trt.py ./occupancy_configs/fb_occ/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.py ckpts/fbocc-r50-cbgs_depth_16f_16x4_20e.pth
+python tools/test.py ./occupancy_configs/fb_occ/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.py ckpts/fbocc-r50-cbgs_depth_16f_16x4_20e.pth
+
+export LD_LIBRARY_PATH=/FB-BEV/TensorRT-8.6.3.1/lib:$LD_LIBRARY_PATH
+TensorRT-8.6.3.1/bin/trtexec --onnx=data/onnx/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.onnx  --plugins=TensorRT/lib/libtensorrt_ops.so --saveEngine=data/onnx/fbocc-r50-cbgs_depth_16f_16x4_20e_trt_fp32.engine
+
+TensorRT-8.6.3.1/bin/trtexec --onnx=data/onnx/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.onnx  --plugins=TensorRT/lib/libtensorrt_ops.so --saveEngine=data/onnx/fbocc-r50-cbgs_depth_16f_16x4_20e_trt_fp32.engine --loadInputs=imgs:/FB-BEV/data/imgs.dat,mlp_input:/FB-BEV/data/mlp_input.dat,ranks_bev:/FB-BEV/data/ranks_bev.dat,ranks_depth:/FB-BEV/data/ranks_depth.dat,ranks_feat:/FB-BEV/data/ranks_feat.dat,interval_starts:/FB-BEV/data/interval_starts.dat,interval_lengths:/FB-BEV/data/interval_lengths.dat,ref_2d:/FB-BEV/data/ref_2d.dat,reference_points_cam:/FB-BEV/data/reference_points_cam.dat,per_cam_mask_list:/FB-BEV/data/per_cam_mask_list.dat,bev_query_depth:/FB-BEV/data/bev_query_depth.dat,seq_ids:/FB-BEV/data/seq_ids.dat,start_of_sequence:/FB-BEV/data/start_of_sequence.dat,grid:/FB-BEV/data/grid.dat,history_bev:/FB-BEV/data/history_bev.dat,history_seq_ids:/FB-BEV/data/history_seq_ids.dat,history_sweep_time:/FB-BEV/data/history_sweep_time.dat --maxShapes=ranks_bev:210000,ranks_depth:210000,ranks_feat:210000,interval_starts:55000,interval_lengths:55000 --minShapes=ranks_bev:200000,ranks_depth:200000,ranks_feat:200000,interval_starts:50000,interval_lengths:50000 --optShapes=ranks_bev:209346,ranks_depth:209346,ranks_feat:209346,interval_starts:52766,interval_lengths:52766
+
+TensorRT-8.6.3.1/bin/trtexec --onnx=data/onnx/fbocc_bevpool.onnx  --plugins=TensorRT/lib/libtensorrt_ops.so --loadInputs=depth:/FB-BEV/depth_bevpool_test.bin,feat:/FB-BEV/feat_bevpool_test.bin,ranks_bev:/FB-BEV/ranks_bev.bin,ranks_depth:/FB-BEV/ranks_depth.bin,ranks_feat:/FB-BEV/ranks_feat.bin,interval_starts:/FB-BEV/interval_starts.bin,interval_lengths:/FB-BEV/interval_lengths.bin
+TensorRT-8.6.3.1/bin/trtexec --onnx=data/onnx/fbocc_msda.onnx  --plugins=TensorRT/lib/libtensorrt_ops.so --loadInputs=value:/FB-BEV/data/value.dat,spatial_shapes:/FB-BEV/data/spatial_shapes.dat,reference_points:/FB-BEV/data/reference_points.dat,sampling_offsets:/FB-BEV/data/sampling_offsets.dat,attention_weights:/FB-BEV/data/attention_weights.dat
+
+
+TensorRT-8.6.3.1/bin/trtexec --onnx=data/onnx/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.onnx  --plugins=TensorRT/lib/libtensorrt_ops.so --fp16 --saveEngine=data/onnx/fbocc-r50-cbgs_depth_16f_16x4_20e_trt_fp16.engine
+
+
+
+export LD_LIBRARY_PATH=/FB-BEV/TensorRT-8.6.3.1/lib:$LD_LIBRARY_PATH
+TensorRT-8.6.3.1/bin/trtexec --onnx=data/onnx/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.onnx  --plugins=TensorRT/lib/libtensorrt_ops.so
+
+
+## training
+./tools/dist_train.sh ./occupancy_configs/fb_occ/fbocc-r50-cbgs_depth_16f_16x4_20e.py 1
+## testing
+if multi-gpu testing, change L487-L489: 
+if num_augs==1 and not img_metas[0].data[0][0].get('tta_config', dict(dist_tta=False))['dist_tta']:
+    return self.simple_test(points[0], img_metas[0].data[0], img_inputs[0],
+                        **kwargs)
+Then, CMD:
+./tools/dist_test.sh ./occupancy_configs/fb_occ/fbocc-r50-cbgs_depth_16f_16x4_20e.py ckpts/fbocc-r50-cbgs_depth_16f_16x4_20e.pth 1
+
+if single-GPU testing, CMD: 
+python tools/test.py ./occupancy_configs/fb_occ/fbocc-r50-cbgs_depth_16f_16x4_20e.py ckpts/fbocc-r50-cbgs_depth_16f_16x4_20e.pth 
+
+python tools/pth2onnx.py occupancy_configs/fb_occ/fbocc-r50-cbgs_depth_16f_16x4_20e.py --checkpoint ckpts/r50_256x705_depth_pretrain.pth --cuda
+
+## Python
+from tools.onnx2trt import build_engine
+import ctypes
+PLUGIN_LIBRARY1 = "/workspace/FB-BEV/TensorRT/lib/libtensorrt_ops.so"
+ctypes.cdll.LoadLibrary(PLUGIN_LIBRARY1)
+build_engine('bevpool.onnx', 'bevpool.engine')
+## 
+export LD_LIBRARY_PATH=/FB-BEV/TensorRT-8.6.3.1/lib:$LD_LIBRARY_PATH
+TensorRT-8.6.3.1/bin/trtexec --onnx=data/onnx/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.onnx  --plugins=TensorRT/lib/libtensorrt_ops.so
+
+
+# Let's get data dumped and loaded for inferences
+#    input_shapes = {}
+#    input_shapes["depth.1"] = [1, 6, 80, 16, 44]
+#    input_shapes["feat.1"] = [1, 6, 16, 44, 80]
+#    input_shapes["ranks_depth.1"] = [209403,]
+#    input_shapes["ranks_feat.1"] = [209403,]
+#    input_shapes["ranks_bev"] = [209403,]
+#    input_shapes["interval_starts.1"] = [52819,]
+#    input_shapes["interval_lengths.1"] = [52819,]
+#    output_shapes = {}
+#    output_shapes["7"] = [1, 80, 1, 100, 100]#[1, 100, 100, 44]
+    
+
+                        
+--exportOutput=data/output_trt.json --verbose
+--loadInputs='input_feats':data/input_feats_small.dat,'geom_feats':data/geom_feats_small.dat,'interval_lengths':data/interval_lengths_small.dat,'interval_starts':data/interval_starts_small.dat --exportOutput=data/output_trt.json --verbose
+
+#################################################
+################ Labuser 244 ####################
+#################################################
+
+
+sudo scp -r  johnyang@10.111.73.132:/home/johnyang/BEVFormer_tensorrt_jy/ /home/labuser/johnyang/BEVFormer_tensorrt
+cd /home/labuser/johnyang/BEVFormer_tensorrt/
+docker build -t trt85 -f docker/Dockerfile .
+
+sudo scp -r johnyang@10.111.73.132:/home/johnyang/FB-OCC-TRT/ /home/labuser/johnyang/
+sudo scp -r johnyang@10.111.73.132:/home/johnyang/FB-OCC-TRT/deployment/commands.txt /home/labuser/johnyang/FB-OCC-TRT/deployment/commands.txt
+sudo sshfs -o allow_other,default_permissions johnyang@10.111.73.132:/media/johnyang/a6bc9a10-9b5a-43f5-a9e5-5f8e87070e2b5/nuscenes /home/labuser/johnyang/nuscenes
+sudo sshfs -o allow_other,default_permissions johnyang@10.111.73.132:/media/johnyang/a6bc9a10-9b5a-43f5-a9e5-5f8e87070e2b5/occ3d_nuscenes/gts /home/labuser/johnyang/nuscenes/gts
+
+sudo scp -r johnyang@10.111.73.132:/home/johnyang/FB-OCC-TRT/deployment/* /home/labuser/johnyang/FB-OCC-TRT/deployment/
+sudo scp -r johnyang@10.111.73.132:/home/johnyang/FB-OCC-TRT/deployment/TensorRT/* /home/labuser/johnyang/FB-OCC-TRT/deployment/TensorRT/
+sudo scp -r johnyang@10.111.73.132:/home/johnyang/FB-OCC-TRT/deployment/occupancy_trt_configs/* /home/labuser/johnyang/FB-OCC-TRT/deployment/occupancy_trt_configs/
+sudo scp -r johnyang@10.111.73.132:/home/johnyang/FB-OCC-TRT/occupancy_configs/* /home/labuser/johnyang/FB-OCC-TRT/occupancy_configs/
+
+sudo scp -r johnyang@10.111.73.132:/home/johnyang/FB-OCC-TRT/mmdet3d/* /home/labuser/johnyang/FB-OCC-TRT/mmdet3d/
+sudo scp -r johnyang@10.111.73.132:/home/johnyang/FB-OCC-TRT/tools/* /home/labuser/johnyang/FB-OCC-TRT/tools/
+
+
+sudo docker run -it --shm-size 1024G --privileged --network=host --user root --gpus all  --rm -v /home/labuser/johnyang/FB-OCC-TRT/:/FB-BEV/ -v /home/labuser/johnyang/nuscenes:/FB-BEV/data/nuscenes/  \
+                                         -v /home/labuser/johnyang/nuscenes/gts:/FB-BEV/data/nuscenes/gts  trt85  /bin/bash
+
+
+#################################################
+################## Titan X ######################
+#################################################
+
+
+sudo sshfs -o allow_other,default_permissions johnyang@10.111.73.132:/media/johnyang/a6bc9a10-9b5a-43f5-a9e5-5f8e87070e2b5/nuscenes /home/johnyang/dataset/nuscenes
+sudo sshfs -o allow_other,default_permissions johnyang@10.111.73.132:/media/johnyang/a6bc9a10-9b5a-43f5-a9e5-5f8e87070e2b5/occ3d_nuscenes/gts /home/johnyang/dataset/nuscenes/gts
+sudo scp -r johnyang@10.111.73.132:/home/johnyang/fb-occ_tensorrt  /home/johnyang/fb-occ_tensorrt
+sudo scp -r johnyang@10.111.73.132:/home/johnyang/BEVFormer_tensorrt/ /home/johnyang/BEVFormer_tensorrt/
+
+cd /home/johnyang/fb-occ_tensorrt/fb-occ_tensorrt/
+docker build -t trt85 -f docker/Dockerfile .
+docker run -it --shm-size 1024G --privileged --network=host --user root --gpus all  --rm -v /home/johnyang/fb-occ_tensorrt/fb-occ_tensorrt/:/FB-BEV/ -v /home/johnyang/dataset/nuscenes:/FB-BEV/data/nuscenes/  trt85  /bin/bash
+
+cd /FB-BEV/TensorRT/
+source install.sh
+cd /FB-BEV/  
+
+cd /FB-BEV/  
+pip install --user -e . 
+pip install mmcv-full==1.5.2 
+pip install mmdet==2.24.0 mmsegmentation==0.24.0 opencv-python==4.5.5.64 spconv yapf==0.40.1
+pip install torch==1.13.1+cu117 torchvision==0.14.1+cu117 torchaudio==0.13.1 --extra-index-url https://download.pytorch.org/whl/cu117
+
+export LD_LIBRARY_PATH=/FB-BEV/TensorRT-8.6.3.1/lib:$LD_LIBRARY_PATH
+
+CUDA_LAUNCH_BLOCKING=1 CUDA_VISIBLE_DEVICES=0 python tools/pth2onnx.py occupancy_configs/fb_occ/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.py
+python tools/test_trt.py ./occupancy_configs/fb_occ/fbocc-r50-cbgs_depth_16f_16x4_20e.py
+
+
+# LabUser
+sudo sshfs -o allow_other,default_permissions johnyang@10.111.73.132:/media/johnyang/a6bc9a10-9b5a-43f5-a9e5-5f8e87070e2b5/nuscenes /home/johnyang/dataset/nuscenes
+sudo sshfs -o allow_other,default_permissions johnyang@10.111.73.132:/media/johnyang/a6bc9a10-9b5a-43f5-a9e5-5f8e87070e2b5/occ3d_nuscenes/gts /home/johnyang/dataset/nuscenes/gts
+
+
+
+#################################################
+########### PlugIn Cross-Compile ################
+#################################################
+
+docker run --gpus all -it --network=host --rm \
+    -v /home/johnyang/fb-occ_tensorrt/:/FB-BEV/ \
+    nvcr.io/drive/driveos-sdk/drive-agx-orin-linux-aarch64-sdk-build-x86:6.0.10.0-0009
+
+
+
+sudo scp -r labuser@10.137.169.244:/home/labuser/johnyang/fb-occ_tensorrt/data/*.dat /home/johnyang/fb-occ_tensorrt/data/
+sudo scp -r labuser@10.137.169.244:/home/labuser/johnyang/fb-occ_tensorrt/data/onnx/*.onnx /home/johnyang/fb-occ_tensorrt/data/onnx
+
+TensorRT-8.6.13.3/bin/trtexec --onnx=data/onnx/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.onnx --plugins="/home/nvidia/workspace/johnyang/fb-occ_tensorrt/libfbocc_plugin_aarch64.so"  --exportOutput=data/output_trt_full_new.json --loadInputs=imgs:data/imgs.dat,mlp_input:data/mlp_input.dat,ranks_depth:data/ranks_depth.dat,ranks_feat:data/ranks_feat.dat,ranks_bev:data/ranks_bev.dat,interval_starts:data/interval_starts.dat,interval_lengths:data/interval_lengths.dat,ref_2d:data/ref_2d.dat,reference_points_cam:data/reference_points_cam.dat,per_cam_mask_list:data/per_cam_mask_list.dat,indexes:data/indexes.dat,queries_rebatch:data/queries_rebatch.dat,reference_points_rebatch:data/reference_points_rebatch.dat,bev_query_depth_rebatch:data/bev_query_depth_rebatch.dat,start_of_sequence:data/start_of_sequence.dat,grid:data/grid.dat,history_bev:data/history_bev.dat,history_seq_ids:data/history_seq_ids.dat,history_sweep_time:data/history_sweep_time.dat --optShapes=ranks_bev:209221,ranks_depth:209221,ranks_feat:209221,interval_starts:52869,interval_lengths:52869,indexes:1x6x2487,queries_rebatch:1x6x2487x80,reference_points_rebatch:1x6x2487x4x2,bev_query_depth_rebatch:1x6x2487x4x1 --maxShapes=ranks_bev:210000,ranks_depth:210000,ranks_feat:210000,interval_starts:55000,interval_lengths:55000,indexes:1x6x4000,queries_rebatch:1x6x4000x80,reference_points_rebatch:1x6x4000x4x2,bev_query_depth_rebatch:1x6x4000x4x1 --minShapes=ranks_bev:200000,ranks_depth:200000,ranks_feat:200000,interval_starts:50000,interval_lengths:50000,indexes:1x6x1000,queries_rebatch:1x6x1000x80,reference_points_rebatch:1x6x1000x4x2,bev_query_depth_rebatch:1x6x1000sx4x1
+

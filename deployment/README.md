@@ -7,8 +7,8 @@ This repository provides a comprehensive deployment framework for **FB-OCC** usi
    Download the TensorRT-8.6.13.3 tarball from the [NVIDIA TensorRT](https://developer.nvidia.com/tensorrt). TensorRT is available for free as a binary on multiple platforms or as a container on NVIDIA NGC™. After downloading, follow the installation instructions provided on the page to set up TensorRT on your system.
 
    ```bash
-   tar -xzvf <path_to_your_TensorRT-8.6.13.3-tarball.tar.gz>
-   export LD_LIBRARY_PATH=<path_to_your_TensorRT-8.6.13.3>:$LD_LIBRARY_PATH
+   tar -xzvf <path_to_your_TensorRT_tarball>
+   export LD_LIBRARY_PATH=<path_to_your_TensorRT>:$LD_LIBRARY_PATH
    ```
 
 2. **TensorRT Plugin Compilation**  
@@ -26,9 +26,7 @@ This repository provides a comprehensive deployment framework for **FB-OCC** usi
    cd BEVFormer_tensorrt/
    ```
 
-
-
-   #### For NVIDIA DRIVE Orin with TensorRT-8.6.13.3
+   #### For NVIDIA DRIVE Orin with TensorRT
 
    Cross-compiling is essential when the target platform, such as NVIDIA DRIVE OS Linux, differs from the development environment (x86 host). It allows developers to build ARM-compatible plugins on the x86 host by leveraging its computational power. 
    
@@ -63,7 +61,7 @@ This repository provides a comprehensive deployment framework for **FB-OCC** usi
    Next, run the following command to generate the ONNX file for FB-OCC.
    *(Note: Real data samples must be used, and the dataset path thus must be correctly set to avoid errors during ONNX model creation.)*
    ```bash
-   python deployment/pth2onnx.py deployment/occupancy_trt_configs/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.py --trt_path <path_to_TensorRT-8.6.13.3> --trt_plugin_path <path_to_TensorRT_PlugIn>
+   python deployment/pth2onnx.py deployment/occupancy_trt_configs/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.py --trt_path <path_to_TensorRT> --trt_plugin_path <path_to_TensorRT_PlugIn>
    ```
    Running the command above will generate a `create_engine.sh` file. This shell script executes a `trtexec` command with the specified inputs and additional TensorRT configuration flags.
 
@@ -83,7 +81,7 @@ This repository provides a comprehensive deployment framework for **FB-OCC** usi
    To validate the accuracy of the generated TensorRT engine, run the following command:
 
    ```bash
-   python tools/test.py ./occupancy_configs/fb_occ/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.py ckpts/fbocc-r50-cbgs_depth_16f_16x4_20e.pth --trt_engine <path_to_TensorRT_engine>
+   python tools/test.py ./deployment/occupancy_trt_configs/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.py ckpts/fbocc-r50-cbgs_depth_16f_16x4_20e.pth --trt_engine <path_to_TensorRT_engine>
    ```
    
    Replace `<path_to_TensorRT_engine>` with the appropriate path to your TensorRT engine. For example, you can use `data/onnx/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.engine`.

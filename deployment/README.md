@@ -72,7 +72,7 @@ TensorRT models demonstrate significantly lower latency compared to the original
 
    *(Note: Real data samples must be used, and the dataset path thus must be correctly set to avoid errors during ONNX model creation.)*
    ```bash
-   python deployment/pth2onnx.py deployment/occupancy_trt_configs/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.py --trt_path <path_to_TensorRT> --trt_plugin_path <path_to_TensorRT_plugIn>
+   python deployment/pth2onnx.py occupancy_configs/fb_occ/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.py --trt_path <path_to_TensorRT> --trt_plugin_path <path_to_TensorRT_plugIn>
    ```
    Running the command above will generate a `create_engine.sh` file. This shell script executes a `trtexec` command with the specified inputs and additional TensorRT configuration flags.
 
@@ -92,7 +92,7 @@ TensorRT models demonstrate significantly lower latency compared to the original
    To validate the accuracy of the generated TensorRT engine, run the following command:
 
    ```bash
-   python tools/test.py deployment/occupancy_trt_configs/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.py ckpts/fbocc-r50-cbgs_depth_16f_16x4_20e.pth --trt_engine <path_to_TensorRT_engine>
+   python tools/test.py occupancy_configs/fb_occ/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.py ckpts/fbocc-r50-cbgs_depth_16f_16x4_20e.pth --trt_engine <path_to_TensorRT_engine>
    ```
    
    Replace `<path_to_TensorRT_engine>` with the appropriate path to your TensorRT engine. For example, you can use `data/onnx/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.engine`.

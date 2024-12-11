@@ -9,6 +9,117 @@ from mmdet3d.models import (Base3DDetector, Base3DSegmentor,
                             SingleStageMono3DDetector)
 
 
+def single_gpu_test_trt(model,
+                        data_loader,
+                        engine_path = "data/onnx/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.engine"):
+    """Test TensorRT engine inference with single gpu.
+
+    This method tests model with single gpu with a given TensorRT engine. 
+
+    Args:
+        model (nn.Module): Model to be tested.
+        data_loader (nn.Dataloader): Pytorch data loader.
+        engine_path (str, optional): The path to TensorRT engine. 
+            Default: "data/onnx/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.engine"
+
+    Returns:
+        list[dict]: The prediction results.
+    """
+    from deployment.utils.trt_infer_utils import run_trt, build_engine
+    model.eval()
+    results = []
+    dataset = data_loader.dataset
+    prog_bar = mmcv.ProgressBar(len(dataset))
+
+    for idx, data in enumerate(data_loader):
+        with torch.no_grad():
+            trt_inputs = []
+            inputs = [t for t in data['img_inputs'][0]]
+            meta = data['img_metas'][0].data
+            seq_group_idx = int(meta[0][0]['sequence_group_idx']), 
+            start_seq = meta[0][0]['start_of_sequence']
+            curr2prev_rt = meta[0][0]['curr_to_prev_ego_rt']
+
+            curr_to_prev_ego_rt = torch.stack([curr2prev_rt]) # bs = 1
+            seq_ids = torch.LongTensor([seq_group_idx])
+            start_of_sequence = torch.BoolTensor([start_seq])
+            imgs, _, _, _, _, _, bda = inputs
+            
+            mlp_input = model.prepare_mlp_inputs([t for t in inputs[1:7]])
+            ranks_bev, ranks_depth, ranks_feat, interval_starts, interval_lengths = \
+                model.prepare_bevpool_inputs([t.cuda() for t in inputs[1:7]])
+            ref_2d, bev_query_depth, reference_points_cam, per_cam_mask_list, indexes, index_len, \
+                queries_rebatch, reference_points_rebatch, bev_query_depth_rebatch = \
+                model.prepare_bwdproj_inputs([t for t in inputs[1:7]])
+            
+            forward_augs = model.generate_forward_augs(bda)
+
+            if idx == 0 : 
+                history_bev = torch.from_numpy(np.zeros([1, 1280, 8, 100, 100]))
+                history_seq_ids = seq_ids
+                history_forward_augs = forward_augs.clone()
+                history_sweep_time = history_bev.new_zeros(history_bev.shape[0], model.history_cat_num) 
+                start_of_sequence = torch.BoolTensor([True])
+            else: 
+                history_sweep_time += 1
+                if start_of_sequence.sum() > 0.: 
+                    history_sweep_time[start_of_sequence] = 0
+                    history_seq_ids[start_of_sequence] = seq_ids[start_of_sequence]
+                    history_forward_augs[start_of_sequence] = forward_augs[start_of_sequence]
+                    
+            grid = model.prepare_grid(bda, history_forward_augs, forward_augs, curr_to_prev_ego_rt, start_of_sequence)
+
+            inputs_ = dict(
+                    imgs=imgs.detach().cpu().numpy(), 
+                    mlp_input=mlp_input.detach().cpu().numpy(), 
+                    ranks_depth=ranks_depth.detach().cpu().numpy(), 
+                    ranks_feat=ranks_feat.detach().cpu().numpy(),
+                    ranks_bev=ranks_bev.detach().cpu().numpy(), 
+                    interval_starts=interval_starts.detach().cpu().numpy(), 
+                    interval_lengths=interval_lengths.detach().cpu().numpy(), 
+                    ref_2d=ref_2d.detach().cpu().numpy(), 
+                    bev_query_depth=bev_query_depth.detach().cpu().numpy(),
+                    reference_points_cam=reference_points_cam.detach().cpu().numpy(), 
+                    per_cam_mask_list=per_cam_mask_list.detach().cpu().numpy(),
+                    indexes=indexes.detach().cpu().numpy(), 
+                    queries_rebatch=queries_rebatch.detach().cpu().numpy(),
+                    reference_points_rebatch=reference_points_rebatch.detach().cpu().numpy(), 
+                    bev_query_depth_rebatch=bev_query_depth_rebatch.detach().cpu().numpy(),
+                    start_of_sequence=start_of_sequence.detach().cpu().numpy(),
+                    grid=grid.detach().cpu().numpy(),
+                    history_bev=history_bev.detach().cpu().numpy(),
+                    history_seq_ids=history_seq_ids.detach().cpu().numpy().astype(np.int32),
+                    history_sweep_time=history_sweep_time.detach().cpu().numpy().astype(np.int32)
+                    )
+            
+            input_shapes = {}
+            for id, key in enumerate(inputs_.keys()):
+                input_shapes[key] = [element for element in  inputs_[key].shape]
+                trt_inputs.append(inputs_[key]) # NUMPY array
+            
+            output_shapes = dict(
+                output_history_bev=[1, 1280, 8, 100, 100],
+                output_history_seq_ids=[1,],
+                output_history_sweep_time=[1, 16],
+                pred_occupancy=[1, 19, 200, 200, 16])
+
+            engine = build_engine(engine_path)
+            trt_outputs, t = run_trt(trt_inputs, engine, imgs.size(0), input_shapes, output_shapes)
+            
+            pred_occupancy = torch.from_numpy(trt_outputs['pred_occupancy'])
+            history_bev = torch.from_numpy(trt_outputs['output_history_bev'])
+            history_seq_ids = torch.from_numpy(trt_outputs['output_history_seq_ids'])
+            history_sweep_time = torch.from_numpy(trt_outputs['output_history_sweep_time'])
+            
+            result_dict_list = model.post_process(pred_occupancy)
+            result_dict_list[0]['index'] = meta[0][0]['index']
+            results.extend(result_dict_list)
+
+            batch_size = imgs.size(0)
+            for _ in range(batch_size):
+                prog_bar.update()
+    return results
+
 def single_gpu_test(model,
                     data_loader,
                     show=False,

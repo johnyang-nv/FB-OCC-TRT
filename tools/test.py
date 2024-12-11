@@ -261,7 +261,7 @@ def main():
 
     if not distributed:
         if args.trt_engine is not None:
-            outputs = single_gpu_test_trt(model, data_loader, args.trt_engine)
+            outputs = single_gpu_test_trt(model, data_loader, args.trt_engine, cfg)
         else:  
             model = MMDataParallel(model, device_ids=cfg.gpu_ids)
             outputs = single_gpu_test(model, data_loader, args.show, args.show_dir)

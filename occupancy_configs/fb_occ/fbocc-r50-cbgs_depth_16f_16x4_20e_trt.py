@@ -390,3 +390,9 @@ custom_hooks = [
 ]
 load_from = 'ckpts/r50_256x705_depth_pretrain.pth'
 fp16 = dict(loss_scale='dynamic')
+
+output_shapes = dict(
+                output_history_bev=[1, 1280, 8, 100, 100],
+                output_history_seq_ids=[1,],
+                output_history_sweep_time=[1, 16],
+                pred_occupancy=[1, 19, 200, 200, 16])

@@ -11,7 +11,8 @@ from mmdet3d.models import (Base3DDetector, Base3DSegmentor,
 
 def single_gpu_test_trt(model,
                         data_loader,
-                        engine_path = "data/onnx/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.engine"):
+                        engine_path, 
+                        cfg):
     """Test TensorRT engine inference with single gpu.
 
     This method tests model with single gpu with a given TensorRT engine. 
@@ -19,8 +20,7 @@ def single_gpu_test_trt(model,
     Args:
         model (nn.Module): Model to be tested.
         data_loader (nn.Dataloader): Pytorch data loader.
-        engine_path (str, optional): The path to TensorRT engine. 
-            Default: "data/onnx/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.engine"
+        engine_path (str): The path to TensorRT engine. 
 
     Returns:
         list[dict]: The prediction results.
@@ -55,7 +55,7 @@ def single_gpu_test_trt(model,
             forward_augs = model.generate_forward_augs(bda)
 
             if idx == 0 : 
-                history_bev = torch.from_numpy(np.zeros([1, 1280, 8, 100, 100]))
+                history_bev = torch.from_numpy(np.zeros(cfg.output_shapes['output_history_bev']))
                 history_seq_ids = seq_ids
                 history_forward_augs = forward_augs.clone()
                 history_sweep_time = history_bev.new_zeros(history_bev.shape[0], model.history_cat_num) 
@@ -97,14 +97,8 @@ def single_gpu_test_trt(model,
                 input_shapes[key] = [element for element in  inputs_[key].shape]
                 trt_inputs.append(inputs_[key]) # NUMPY array
             
-            output_shapes = dict(
-                output_history_bev=[1, 1280, 8, 100, 100],
-                output_history_seq_ids=[1,],
-                output_history_sweep_time=[1, 16],
-                pred_occupancy=[1, 19, 200, 200, 16])
-
             engine = build_engine(engine_path)
-            trt_outputs, t = run_trt(trt_inputs, engine, imgs.size(0), input_shapes, output_shapes)
+            trt_outputs, t = run_trt(trt_inputs, engine, imgs.size(0), input_shapes, cfg.output_shapes)
             
             pred_occupancy = torch.from_numpy(trt_outputs['pred_occupancy'])
             history_bev = torch.from_numpy(trt_outputs['output_history_bev'])

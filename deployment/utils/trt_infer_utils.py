@@ -7,28 +7,15 @@
 # disclosure or distribution of this material and related documentation 
 # without an express license agreement from NVIDIA CORPORATION or 
 # its affiliates is strictly prohibited.
-import os
-import argparse
 import tensorrt as trt
 import numpy as np
 import pycuda.driver as cuda
-import ctypes
 import time
 
 import sys
 sys.path.append(".")
 
-BATCH_SIZE = 1
-
-FP='fp32'
-PLUGIN_LIBRARY1 = "/FB-BEV/TensorRT/lib/libtensorrt_ops.so"
-
-EXPLICIT_BATCH = 1 << (int)(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
 TRT_LOGGER = trt.Logger(trt.Logger.ERROR)
-trt.init_libnvinfer_plugins(TRT_LOGGER, '')
-ctypes.cdll.LoadLibrary(PLUGIN_LIBRARY1)
-PLUGIN_CREATORS = trt.get_plugin_registry().plugin_creator_list
-
 
 class OutputAllocator(trt.IOutputAllocator):
     def __init__(self, curr_size):
@@ -178,15 +165,4 @@ def run_trt(trt_inputs, engine, batch_size=1, input_shapes=None, output_shapes=N
 
 
 
-
-
-def build_engine_onnx(model_file):
-    with trt.Builder(TRT_LOGGER) as builder, builder.create_network() as network, trt.OnnxParser(network, TRT_LOGGER) as parser:
-
-        with open(model_file, 'rb') as model:
-            parser.parse(model.read())
-
-        network.mark_output(network.get_layer(network.num_layers - 1).get_output(0))
-
-        return builder.build_cuda_engine(network)
 

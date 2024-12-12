@@ -54,10 +54,12 @@ TensorRT models demonstrate lower latency compared to the original PyTorch imple
    python deployment/pth2onnx.py occupancy_configs/fb_occ/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.py
    ```
 
-   This command uses real data samples and saves the input data for use in later steps when creating the TensorRT engine.
+   The command above will generate at `data/onnx/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.onnx`.
 
+   During execution, the command processes real data samples and saves the input data at `data/trt_inputs/`. 
 
-   
+   These inputs will be used in subsequent steps to create the TensorRT engine.
+
 
 ## TensorRT Plugin Cross-Compilation for DRIVE OS Linux on x86 host
 
@@ -74,7 +76,7 @@ TensorRT models demonstrate lower latency compared to the original PyTorch imple
 
 2. **Set Up the Environment**
 
-   Download a pre-configured NGC container to streamline the cross-compilation process. Detailed instructions for accessing NGC containers are available in the [NVIDIA DRIVE site](https://developer.nvidia.com/drive/downloads).    
+   - Download a pre-configured NGC container to streamline the cross-compilation process. Detailed instructions for accessing NGC containers are available in the [NVIDIA DRIVE site](https://developer.nvidia.com/drive/downloads).    
    - Download the `nv-tensorrt-repo-ubuntu2004-cuda11.4-trt8.6.13.3-d6l-cross-ga-20240202_1-1_amd64.deb` debian package to your workspace `/path/to/BEVFormer_tensorrt/` from [Poduct Information Delivery](https://apps.nvidia.com/PID/ContentGroup/Detail/1948?FromLocation=CL) with your NVONLINE account. 
    - Launch the Drive OS Linux Docker container with `BEVFormer_tensorrt` mounted::
    ```bash
@@ -91,48 +93,65 @@ TensorRT models demonstrate lower latency compared to the original PyTorch imple
    cd /BEVFormer_tensorrt/TensorRT/
    make TARGET=aarch64
    ```
-   When completed, the compiled plugin file will be located at `/drive/bin/aarch64/FB-OCC_trt_plugin_aarch64.so`.
 
-   `FB-OCC_trt_plugin_aarch_aarch64.so` will be used in the next steps to create the TensorRT engine.
+   Once the compilation is complete, the plugin file will be located at: `/drive/bin/aarch64/FB-OCC_trt_plugin_aarch64.so`.
+
+   Move the plugin file to your mounted directory for use in the next steps:
+
+   ```bash
+   mv /drive/bin/aarch64/FB-OCC_trt_plugin_aarch64.so /BEVFormer_tensorrt/
+   ```
+
+   The plugin file `FB-OCC_trt_plugin_aarch_aarch64.so` will be used in the next steps to create the TensorRT engine.
 
    
 ## Running TensorRT Engine Creation on the Target Platform
 
 TensorRT engine creation must be performed on the target platform running NVIDIA DRIVE OS, as the cross-compiled TensorRT plugin is not recognized on x86 systems but works on ARM-based platforms.
 
-1. **Transfer the Environment and Plugin**
-   
-   Transfer the workspace and the cross-compiled plugin (e.g., `FB-OCC_trt_plugin_aarch64.so`) to the target platform. Ensure real data samples are provided to satisfy the model's dynamic input size requirements.
+1. **Prepare and Transfer Required Files**
 
-   **Important**: Real data samples are required during engine creation to avoid errors. These samples must align with the model’s dynamic input size requirements.
+   Transfer the following files to the target platform:
+
+   - ONNX file: `fbocc-r50-cbgs_depth_16f_16x4_20e_trt.onnx`
+   - Compiled plugin: `FB-OCC_trt_plugin_aarch64.so`
+   - Input data: Files saved in `/path/to/FB-BEV/data/trt_inputs/`
+   - Shell script: `create_trt_engine.sh` saved in `/path/to/FB-BEV/deployment/`
+   
 
 2. **Run the Engine Creation Command** 
    
-   Navigate to the FB-BEV directory on the target platform and execute the following commands to create the TensorRT engine:
+   Navigate to your workspace on the target platform and execute the following commands to create the TensorRT engine:
 
    ```bash
-   cd /path/to/FB-BEV/
-   # Standard engine creation
-   python deployment/create_engine.py --trt_plugin_path /path/to/FB-OCC_trt_plugin_aarch64.so
+   cd /path/to/your/workspace/
+   chmod +x create_trt_engine.sh
 
-   # Engine creation with FP16 precision
-   python deployment/create_engine.py --trt_plugin_path /path/to/FB-OCC_trt_plugin_aarch64.so --fp16
+   # Example 1: Standard engine creation
+   ./create_trt_engine.sh --trt_plugin_path /path/to/FB-OCC_trt_plugin_aarch64.so
 
-   # Engine creation with a custom engine path
-   python deployment/create_engine.py --trt_plugin_path /path/to/FB-OCC_trt_plugin_aarch64.so --trt_engine_path <path_to_TensorRT_engine>
+   # Example 2: Engine creation with FP16 precision
+   ./create_trt_engine.sh --trt_plugin_path /path/to/FB-OCC_trt_plugin_aarch64.so --fp16
+
+   # Example 3: Custom engine path
+   ./create_trt_engine.sh --trt_plugin_path /path/to/FB-OCC_trt_plugin_aarch64.so --trt_engine_path /path/to/custom_engine_path
+
+   # Example 4: Custom engine path and custom input data path
+   ./create_trt_engine.sh --trt_plugin_path /path/to/FB-OCC_trt_plugin_aarch64.so --trt_engine_path /path/to/custom_engine_path --data_dir /path/to/trt_inputs 
    ```
 
 3. **Output Location**
 
-   Upon successful execution, the TensorRT engine will be saved at the specified `<path_to_TensorRT_engine>` or, by default, at `data/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.engine`.
+   Upon successful execution, the TensorRT engine will be saved at the specified `<path_to_TensorRT_engine>` or, by default, as `fbocc-r50-cbgs_depth_16f_16x4_20e_trt.engine`.
 
    #### **Notes:**
 
    - **Real Data Requirement:** Ensure real data samples are available and properly configured (e.g., .dat files) to avoid errors during engine creation. The model uses dynamic input sizes for multiple inputs.
-   - **Dataset Configuration:** Verify that the dataset paths for the input files are correctly set up to ensure smooth engine creation.
+   - **Dataset Configuration:** Confirm that the dataset paths for the input files are correctly set up to ensure smooth engine creation.
 
 ## Validation / Inference 
 
+   Coming back to 
    To validate the accuracy of the generated TensorRT engine, use the following command:
 
    ```bash

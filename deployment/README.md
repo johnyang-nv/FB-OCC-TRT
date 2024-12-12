@@ -54,11 +54,10 @@ TensorRT models demonstrate lower latency compared to the original PyTorch imple
    python deployment/pth2onnx.py occupancy_configs/fb_occ/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.py
    ```
 
-   The command above will generate at `data/onnx/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.onnx`.
+   The command will generate the ONNX model file at `data/onnx/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.onnx`.
 
-   During execution, the command processes real data samples and saves the input data at `data/trt_inputs/`. 
-
-   These inputs will be used in subsequent steps to create the TensorRT engine.
+   During execution, the command processes real data samples and saves the input data in the directory `data/trt_inputs/`. 
+   These inputs are needed for the next steps, where they will be used to build the TensorRT engine.
 
 
 ## TensorRT Plugin Cross-Compilation for DRIVE OS Linux on x86 host

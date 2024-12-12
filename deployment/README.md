@@ -82,7 +82,8 @@ TensorRT models demonstrate lower latency compared to the original PyTorch imple
      -v /your/path/to/BEVFormer_tensorrt/:/BEVFormer_tensorrt \
      nvcr.io/drive/driveos-sdk/drive-agx-orin-linux-aarch64-sdk-build-x86:6.0.10.0-0009
    ```
-3. Install Required Components
+3. **Install Required Components**
+
    Inside the Docker container, execute the following commands to install the necessary components and build the plugins:   
    ```bash
    dpkg -i /BEVFormer_tensorrt/nv-tensorrt-repo-ubuntu2004-cuda11.4-trt8.6.13.3-d6l-cross-ga-20240202_1-1_amd64.deb

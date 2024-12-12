@@ -74,7 +74,7 @@ TensorRT models demonstrate lower latency compared to the original PyTorch imple
 
 2. **Set Up the Environment**
 
-   Download a pre-configured NGC container to streamline the cross-compilation process. Detailed instructions for accessing NGC containers are available in the [NGC Container Setup Guide](https://developer.nvidia.com/docs/drive/drive-os/6.0.10/public/drive-os-linux-installation/common/topics/installation/docker-ngc/setup-drive-os-linux-nvonline.html).    
+   Download a pre-configured NGC container to streamline the cross-compilation process. Detailed instructions for accessing NGC containers are available in the [NVIDIA DRIVE site](https://developer.nvidia.com/drive/downloads).    
    - Download the `nv-tensorrt-repo-ubuntu2004-cuda11.4-trt8.6.13.3-d6l-cross-ga-20240202_1-1_amd64.deb` debian package to your workspace `/path/to/BEVFormer_tensorrt/` from [Poduct Information Delivery](https://apps.nvidia.com/PID/ContentGroup/Detail/1948?FromLocation=CL) with your NVONLINE account. 
    - Launch the Drive OS Linux Docker container with `BEVFormer_tensorrt` mounted::
    ```bash

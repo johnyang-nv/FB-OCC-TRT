@@ -12,25 +12,17 @@ import argparse
 import tensorrt as trt
 import numpy as np
 import pycuda.driver as cuda
-import pycuda.autoinit
 import ctypes
 import time
-import torch
-from mmcv import Config
-from mmcv.runner import load_checkpoint
-from tqdm import tqdm
 
 import sys
 sys.path.append(".")
-
-from mmdet3d.models.builder import build_model
-from mmdet3d.datasets.builder import build_dataloader, build_dataset
 
 BATCH_SIZE = 1
 
 FP='fp32'
 PLUGIN_LIBRARY1 = "/FB-BEV/TensorRT/lib/libtensorrt_ops.so"
-ENGINE_PATH = "/FB-BEV/data/onnx/fbocc-r50-cbgs_depth_16f_16x4_20e_trt_fp32.engine"
+
 EXPLICIT_BATCH = 1 << (int)(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
 TRT_LOGGER = trt.Logger(trt.Logger.ERROR)
 trt.init_libnvinfer_plugins(TRT_LOGGER, '')

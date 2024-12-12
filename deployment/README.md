@@ -1,15 +1,15 @@
 # FB-OCC TensorRT Deployment on NVIDIA Drive Platform
 
 
-This repository provides a comprehensive `ONNX-to-TensorRT` deployment framework for **FB-OCC** on the **NVIDIA DRIVE platform** using **TensorRT**, supporting both `FP32` and `FP16` inference for optimized performance. It includes all necessary components to streamline the process from model export to efficient execution on TensorRT for NVIDIA DRIVE deployments.
+This section provides a deployment workflow for **FB-OCC** using **TensorRT**, supporting both `FP32` and `FP16` inference. It includes all necessary components to streamline the process from model export to inference on **NVIDIA DRIVE Orin** with TensorRT.
 
 <div align="center">
 
-|                      | mIoU           | Latency (ms) on A40  |  Latency (ms) on NVIDIA DRIVE Orin   |
-|---------------------------|----------------|--------------|--------|
-| FB-OCC-TensorRT_fp32      | 38.90          | 54.37        | 197.89 |
-| FB-OCC-TensorRT_fp16      | 38.86          | 34.26        | 138.62 |
-| FB-OCC-PyTorch (original) | 38.90 (reproduced)| 98.37    | -      |
+|                           | mIoU              | Latency (ms) on A40  |  Latency (ms) on NVIDIA DRIVE Orin   |
+|---------------------------|-------------------|----------------------|--------------------------------------|
+| FB-OCC-TensorRT_fp32      | 38.90             | 54.37                | 197.89                               |
+| FB-OCC-TensorRT_fp16      | 38.86             | 34.26                | 138.62                               |
+| FB-OCC-PyTorch (original) | 38.90 (reproduced)| 98.37                | -                                    |
 
 </div>
 
@@ -19,92 +19,119 @@ TensorRT models demonstrate significantly lower latency compared to the original
 
 
 
-1. **Prerequisites**
+## Prerequisites
+
+   FB-OCC uses operations that are not natively supported by TensorRT, including `GridSample3D`, `BevPoolv2`, and `Multi-Scale Deformable Attention`. To ensure FB-OCC works correctly during inference, these operations need to be implemented as custom TensorRT plugins and compiled beforehand. These plugins expand TensorRT's functionality, allowing the model to operate as expected.
    
-   Download the `TensorRT-8.6.13.3` tarball from the [NVIDIA TensorRT](https://developer.nvidia.com/tensorrt). TensorRT is available for free as a binary on multiple platforms or as a container on NVIDIA NGC. After downloading, follow the installation instructions provided on the page to set up TensorRT on your system.
-
+   You can modify the TensorRT plugins provided in the [BEVFormer_tensorrt](https://github.com/DerryHub/BEVFormer_tensorrt) repository to make them compatible with FB-OCC:
    ```bash
-   tar -xzvf <path_to_your_TensorRT_tarball>
-   export LD_LIBRARY_PATH=<path_to_your_TensorRT>/lib:$LD_LIBRARY_PATH
-   ```
-
-2. **TensorRT Plugin Compilation**  
-
-   FB-OCC utilizes operations that are not natively supported in TensorRT, such as `GridSample3D`, `BevPoolv2` and `Multi-Scale Deformable Attention`. These operations must be implemented as custom TensorRT plugins and compiled before using FB-OCC for inference. These plugins extend TensorRT’s capabilities, enabling the model to function as expected during optimization and deployment.
-
-   The TensorRT plugins provided in the [BEVFormer_tensorrt](https://github.com/DerryHub/BEVFormer_tensorrt) repository can be modified to work with FB-OCC by applying the necessary tweaks.
-
-   ```bash
+   # Clone the BEVFormer_tensorrt repository
    git clone https://github.com/DerryHub/BEVFormer_tensorrt
+   # Checkout the specific commit for compatibility
    git checkout 303d314
-   cd BEVFormer_tensorrt/
    ```
 
-   ### Cross-compile the plugin for DRIVE OS Linux on x86 host
-
-   Cross-compiling is essential when the target platform, such as NVIDIA DRIVE OS Linux, differs from the development environment (x86 host). It allows developers to build ARM-compatible plugins on the x86 host by leveraging its computational power. 
-   
-   To cross-compile the plugins, apply the `FB-OCC_trt_plugin_aarch64.patch` to the TensorRT plugins. This process reorganizes the plugin files to prepare them for subsequent steps.
-
-   ```bash
-   cd TensorRT/
-   git apply /your/path/to/FB-BEV/deployment/plugins/FB-OCC_trt_plugin_aarch64.patch
-   ```
-
-   A pre-configured environment for subsequent steps can be conveniently obtained by downloading one of the NGC containers. Detailed instructions on accessing such a container are available at [NGC Container Setup Guide](https://developer.nvidia.com/docs/drive/drive-os/6.0.10/public/drive-os-linux-installation/common/topics/installation/docker-ngc/setup-drive-os-linux-nvonline.html).    
-   Download the `nv-tensorrt-repo-ubuntu2004-cuda11.4-trt8.6.13.3-d6l-cross-ga-20240202_1-1_amd64.deb` debian package from [Poduct Information Delivery](https://apps.nvidia.com/PID/ContentGroup/Detail/1948?FromLocation=CL) with your NVONLINE account. 
-   
-   After downloading, proceed to launch the Drive OS Linux Docker image.
-
-   ```bash
-   docker run --gpus all -it --network=host --rm -v /your/path/to/BEVFormer_tensorrt/TensorRT:/workspace/ nvcr.io/drive/driveos-sdk/drive-agx-orin-linux-aarch64-sdk-build-x86:6.0.10.0-0009
-   ```
-   Within the Docker container, execute the following command to install the necessary components for cross-compilation:
-   ```bash
-   cd /workspace/ && dpkg -i nv-tensorrt-repo-ubuntu2004-cuda11.4-trt8.6.13.3-d6l-cross-ga-20240202_1-1_amd64.deb
-   apt install tensorrt-safe-cross-aarch64
-   make TARGET=aarch64
-   ```
-   Running the above commands will generate `/drive/bin/FB-OCC_trt_plugin_aarch.so`, which will be used for TensorRT engine creation in subsequent steps.
-
-   
-3. **ONNX Export**  
-
+## ONNX Export  
    First, refer to the [FB-BEV Repository Installation Guide](docs/install.md) for detailed installation instructions for the FB-OCC repository.
 
-   To utilize the `trt_functions` from the [BEVFormer_tensorrt plugin](https://github.com/DerryHub/BEVFormer_tensorrt/tree/303d3140c14016047c07f9db73312af364f0dd7c/det2trt/models/functions), copy the necessary files into the current workspace and apply the prepared patch to adapt them for FB-OCC:
+1. **Adapting TensorRT Functions for FB-OCC**
+   
+   The `trt_functions` from the [BEVFormer_tensorrt plugin](https://github.com/DerryHub/BEVFormer_tensorrt/tree/303d3140c14016047c07f9db73312af364f0dd7c/det2trt/models/functions) must be copied into the FB-OCC workspace and adjusted for compatibility. Follow these steps:
 
    ```bash
-   # Copy the BEVFormer_tensorrt functions to the FB-OCC workspace
+   # Copy BEVFormer_tensorrt functions to the FB-OCC workspace
    cp /path/to/BEVFormer_tensorrt/det2trt/models/functions/*.py /path/to/FB-BEV/deployment/trt_functions/
 
-   # Apply the patch in the `deployment/trt_functions` directory to modify the functions for FB-OCC
+   # Navigate to the target directory and apply the patch for FB-OCC
    cd deployment/trt_functions/
    git apply FB-OCC_fn-patch-on-derryhub_fn.patch
    ```
 
-   Next, run the following command to generate the ONNX file for FB-OCC. 
+2. **Generating the ONNX File**
 
-   *(Note: Real data samples must be used, and the dataset path thus must be correctly set to avoid errors during ONNX model creation.)*
+   Run the following command to create the ONNX file for FB-OCC:
    ```bash
-   python deployment/pth2onnx.py occupancy_configs/fb_occ/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.py --trt_path <path_to_TensorRT> --trt_plugin_path <path_to_TensorRT_plugIn>
+   python deployment/pth2onnx.py occupancy_configs/fb_occ/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.py
    ```
-   Running the command above will generate a `create_engine.sh` file. This shell script executes a `trtexec` command with the specified inputs and additional TensorRT configuration flags.
 
- 
-4. **TensorRT Engine Creation**  
+   This command uses real data samples and saves the input data for use in later steps when creating the TensorRT engine.
 
-   Run the following command to create the TensorRT engine:
-   ```bash
-   sh create_engine.sh 
-   ```
-   *(Note: To create an FP16 model, include the `--fp16` flag along other options in the `trtexec` command.)*
 
-   When the command executes successfully, the TensorRT engine will be saved at `data/onnx/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.engine`.
    
-   *(Note: Real data samples must be used when creating the engine, as the model utilizes dynamic input sizes for multiple inputs. Ensure the dataset path for inputs (e.g. \*.dat) is correctly configured to prevent errors during TensorRT engine creation.)*
 
-5. **Validation / Inference**  
+## TensorRT Plugin Cross-Compilation for DRIVE OS Linux on x86 host
+
+   Cross-compiling is essential when the target platform, such as NVIDIA DRIVE OS Linux, differs from the development environment (x86 host). It allows developers to build ARM-compatible plugins on the x86 host by leveraging its computational power. 
+
+1. **Apply the Patch**
+
+   To prepare the TensorRT plugins for cross-compilation, apply the `FB-OCC_trt_plugin_aarch64.patch` to the plugin files:
+
+   ```bash
+   cd /path/to/BEVFormer_tensorrt/
+   git apply /path/to/FB-BEV/deployment/plugins/FB-OCC_trt_plugin_aarch64.patch
+   ```   
+
+2. **Set Up the Environment**
+
+   Download a pre-configured NGC container to streamline the cross-compilation process. Detailed instructions for accessing NGC containers are available in the [NGC Container Setup Guide](https://developer.nvidia.com/docs/drive/drive-os/6.0.10/public/drive-os-linux-installation/common/topics/installation/docker-ngc/setup-drive-os-linux-nvonline.html).    
+   - Download the `nv-tensorrt-repo-ubuntu2004-cuda11.4-trt8.6.13.3-d6l-cross-ga-20240202_1-1_amd64.deb` debian package to your workspace `/path/to/FB-BEV/` from [Poduct Information Delivery](https://apps.nvidia.com/PID/ContentGroup/Detail/1948?FromLocation=CL) with your NVONLINE account. 
+   - Launch the Drive OS Linux Docker container with both `BEVFormer_tensorrt` and `FB-BEV` directories mounted::
+   ```bash
+   docker run --gpus all -it --network=host --rm \
+     -v /your/path/to/BEVFormer_tensorrt/:/BEVFormer_tensorrt \
+     -v /your/path/to/FB-BEV:/FB-BEV \
+     nvcr.io/drive/driveos-sdk/drive-agx-orin-linux-aarch64-sdk-build-x86:6.0.10.0-0009
+   ```
+3. Install Required Components
+   Inside the Docker container, execute the following commands to install the necessary components and build the plugins:   
+   ```bash
+   dpkg -i /FB-BEV/nv-tensorrt-repo-ubuntu2004-cuda11.4-trt8.6.13.3-d6l-cross-ga-20240202_1-1_amd64.deb
+   apt install tensorrt-safe-cross-aarch64
+   cd /BEVFormer_tensorrt/TensorRT/
+   make TARGET=aarch64
+   ```
+   When completed, the compiled plugin file will be located at `/drive/bin/aarch64/FB-OCC_trt_plugin_aarch_aarch64.so`.
+
+   This file will be used in the next steps to create the TensorRT engine.
+
+   
+## Running TensorRT Engine Creation on the Target Platform
+
+TensorRT engine creation must be performed on the target platform running NVIDIA DRIVE OS, as the cross-compiled TensorRT plugin is not recognized on x86 systems but works on ARM-based platforms.
+
+1. **Transfer the Environment and Plugin**
+   
+   Transfer the workspace and the cross-compiled plugin (e.g., `/drive/bin/aarch64/FB-OCC_trt_plugin_aarch_aarch64.so`) to the target platform. Ensure real data samples are provided to satisfy the model's dynamic input size requirements.
+
+   **Important**: Real data samples are required during engine creation to avoid errors. These samples must align with the model’s dynamic input size requirements.
+
+2. **Run the Engine Creation Command** 
+   
+   Navigate to the FB-BEV directory on the target platform and execute the following commands to create the TensorRT engine:
+
+   ```bash
+   cd /path/to/FB-BEV/
+   # Standard engine creation
+   python deployment/create_engine.py --trt_plugin_path /drive/bin/aarch64/FB-OCC_trt_plugin_aarch_aarch64.so
+
+   # Engine creation with FP16 precision
+   python deployment/create_engine.py --trt_plugin_path /drive/bin/aarch64/FB-OCC_trt_plugin_aarch_aarch64.so --fp16
+
+   # Engine creation with a custom engine path
+   python deployment/create_engine.py --trt_plugin_path /drive/bin/aarch64/FB-OCC_trt_plugin_aarch_aarch64.so --trt_engine_path <path_to_TensorRT_engine>
+   ```
+
+3. **Output Location**
+
+   Upon successful execution, the TensorRT engine will be saved at the specified `<path_to_TensorRT_engine>` or, by default, at `data/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.engine`.
+
+   #### **Notes:**
+
+   - **Real Data Requirement:** Ensure real data samples are available and properly configured (e.g., .dat files) to avoid errors during engine creation. The model uses dynamic input sizes for multiple inputs.
+   - **Dataset Configuration:** Verify that the dataset paths for the input files are correctly set up to ensure smooth engine creation.
+
+## Validation / Inference 
 
    To validate the accuracy of the generated TensorRT engine, use the following command:
 
@@ -113,5 +140,14 @@ TensorRT models demonstrate significantly lower latency compared to the original
    ```
    
    Replace `<path_to_TensorRT_engine>` with the appropriate path to your TensorRT engine file. For example, `data/onnx/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.engine`. 
-   
-   The results show that the FB-OCC TensorRT models achieve consistent accuracy, with `38.90` for `FP32` and `38.86` for `FP16` precision levels, closely matching the reproduced PyTorch accuracy of `38.90` from the original repository. Additionally, TensorRT models significantly outperform the PyTorch implementation in terms of latency, with `FP16` offering further reductions in inference time, as detailed in the table above. 
+
+   **Results**
+
+   The TensorRT engine produces results consistent with the PyTorch implementation:
+   ```bash
+   FP32 Precision: 38.90
+   FP16 Precision: 38.86
+   ```
+   These results align closely with the reproduced PyTorch accuracy of `38.90` from the original implementation.
+   TensorRT models demonstrate reduced inference latency compared to the PyTorch implementation, with further improvements observed when using FP16 precision.
+

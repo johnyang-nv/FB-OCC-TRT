@@ -141,12 +141,9 @@ def single_gpu_test(model,
     dataset = data_loader.dataset
     prog_bar = mmcv.ProgressBar(len(dataset))
     for i, data in enumerate(data_loader):
-        if i == 20 : 
-            start_ = time.time()
         with torch.no_grad():
             result = model(return_loss=False, rescale=True, **data)
-        if i ==20:
-            print('qwerqwer', (time.time()-start_) * 1000 )
+            
         if show:
             # Visualize the results of MMDetection3D model
             # 'show_results' is MMdetection3D visualization API

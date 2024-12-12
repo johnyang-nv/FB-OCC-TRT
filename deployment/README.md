@@ -75,25 +75,24 @@ TensorRT models demonstrate lower latency compared to the original PyTorch imple
 2. **Set Up the Environment**
 
    Download a pre-configured NGC container to streamline the cross-compilation process. Detailed instructions for accessing NGC containers are available in the [NGC Container Setup Guide](https://developer.nvidia.com/docs/drive/drive-os/6.0.10/public/drive-os-linux-installation/common/topics/installation/docker-ngc/setup-drive-os-linux-nvonline.html).    
-   - Download the `nv-tensorrt-repo-ubuntu2004-cuda11.4-trt8.6.13.3-d6l-cross-ga-20240202_1-1_amd64.deb` debian package to your workspace `/path/to/FB-BEV/` from [Poduct Information Delivery](https://apps.nvidia.com/PID/ContentGroup/Detail/1948?FromLocation=CL) with your NVONLINE account. 
-   - Launch the Drive OS Linux Docker container with both `BEVFormer_tensorrt` and `FB-BEV` directories mounted::
+   - Download the `nv-tensorrt-repo-ubuntu2004-cuda11.4-trt8.6.13.3-d6l-cross-ga-20240202_1-1_amd64.deb` debian package to your workspace `/path/to/BEVFormer_tensorrt/` from [Poduct Information Delivery](https://apps.nvidia.com/PID/ContentGroup/Detail/1948?FromLocation=CL) with your NVONLINE account. 
+   - Launch the Drive OS Linux Docker container with `BEVFormer_tensorrt` mounted::
    ```bash
    docker run --gpus all -it --network=host --rm \
      -v /your/path/to/BEVFormer_tensorrt/:/BEVFormer_tensorrt \
-     -v /your/path/to/FB-BEV:/FB-BEV \
      nvcr.io/drive/driveos-sdk/drive-agx-orin-linux-aarch64-sdk-build-x86:6.0.10.0-0009
    ```
 3. Install Required Components
    Inside the Docker container, execute the following commands to install the necessary components and build the plugins:   
    ```bash
-   dpkg -i /FB-BEV/nv-tensorrt-repo-ubuntu2004-cuda11.4-trt8.6.13.3-d6l-cross-ga-20240202_1-1_amd64.deb
+   dpkg -i /BEVFormer_tensorrt/nv-tensorrt-repo-ubuntu2004-cuda11.4-trt8.6.13.3-d6l-cross-ga-20240202_1-1_amd64.deb
    apt install tensorrt-safe-cross-aarch64
    cd /BEVFormer_tensorrt/TensorRT/
    make TARGET=aarch64
    ```
-   When completed, the compiled plugin file will be located at `/drive/bin/aarch64/FB-OCC_trt_plugin_aarch_aarch64.so`.
+   When completed, the compiled plugin file will be located at `/drive/bin/aarch64/FB-OCC_trt_plugin_aarch64.so`.
 
-   This file will be used in the next steps to create the TensorRT engine.
+   `FB-OCC_trt_plugin_aarch_aarch64.so` will be used in the next steps to create the TensorRT engine.
 
    
 ## Running TensorRT Engine Creation on the Target Platform
@@ -102,7 +101,7 @@ TensorRT engine creation must be performed on the target platform running NVIDIA
 
 1. **Transfer the Environment and Plugin**
    
-   Transfer the workspace and the cross-compiled plugin (e.g., `/drive/bin/aarch64/FB-OCC_trt_plugin_aarch_aarch64.so`) to the target platform. Ensure real data samples are provided to satisfy the model's dynamic input size requirements.
+   Transfer the workspace and the cross-compiled plugin (e.g., `FB-OCC_trt_plugin_aarch64.so`) to the target platform. Ensure real data samples are provided to satisfy the model's dynamic input size requirements.
 
    **Important**: Real data samples are required during engine creation to avoid errors. These samples must align with the model’s dynamic input size requirements.
 
@@ -113,13 +112,13 @@ TensorRT engine creation must be performed on the target platform running NVIDIA
    ```bash
    cd /path/to/FB-BEV/
    # Standard engine creation
-   python deployment/create_engine.py --trt_plugin_path /drive/bin/aarch64/FB-OCC_trt_plugin_aarch_aarch64.so
+   python deployment/create_engine.py --trt_plugin_path /path/to/FB-OCC_trt_plugin_aarch64.so
 
    # Engine creation with FP16 precision
-   python deployment/create_engine.py --trt_plugin_path /drive/bin/aarch64/FB-OCC_trt_plugin_aarch_aarch64.so --fp16
+   python deployment/create_engine.py --trt_plugin_path /path/to/FB-OCC_trt_plugin_aarch64.so --fp16
 
    # Engine creation with a custom engine path
-   python deployment/create_engine.py --trt_plugin_path /drive/bin/aarch64/FB-OCC_trt_plugin_aarch_aarch64.so --trt_engine_path <path_to_TensorRT_engine>
+   python deployment/create_engine.py --trt_plugin_path /path/to/FB-OCC_trt_plugin_aarch64.so --trt_engine_path <path_to_TensorRT_engine>
    ```
 
 3. **Output Location**

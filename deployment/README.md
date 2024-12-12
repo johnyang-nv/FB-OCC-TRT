@@ -15,7 +15,7 @@ This section provides a deployment workflow for **FB-OCC** using **TensorRT**, s
 
 
 The FB-OCC model achieves consistent accuracy across `FP32` and `FP16` precision levels. 
-TensorRT models demonstrate significantly lower latency compared to the original PyTorch implementation, with `FP16` further reducing inference time. 
+TensorRT models demonstrate lower latency compared to the original PyTorch implementation, with `FP16` further reducing inference time. 
 
 
 

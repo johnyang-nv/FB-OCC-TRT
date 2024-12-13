@@ -181,13 +181,10 @@ class FBOCCTRT(FBOCC):
                          grid
                          ):
         curr_bev = curr_bev.permute(0, 1, 4, 2, 3)
-        
-        history_bev = history_bev.to(curr_bev)
-        history_bev = start_of_sequence.float() * curr_bev.repeat(1, self.history_cat_num, 1, 1, 1) + (1. - start_of_sequence.float()) * history_bev
-        
         n, c_, z, h, w = curr_bev.shape 
         
-        tmp_bev = history_bev
+        history_bev = history_bev.to(curr_bev)
+        tmp_bev = start_of_sequence.float() * curr_bev.repeat(1, self.history_cat_num, 1, 1, 1) + (1. - start_of_sequence.float()) * history_bev
         n, mc, z, h, w = tmp_bev.shape
         tmp_bev = tmp_bev.reshape(n, mc, z, h, w)
         

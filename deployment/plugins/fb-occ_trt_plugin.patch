@@ -1,0 +1,869 @@
+From 6d1626e698404115ebeb6495687e9a21773a888d Mon Sep 17 00:00:00 2001
+From: "John Yang (SW-TEGRA)" <johnyang@nvidia.com>
+Date: Thu, 12 Dec 2024 22:49:55 -0800
+Subject: [PATCH] fb-occ_trt_plugin
+
+---
+ TensorRT/CMakeLists.txt                       |  37 ---
+ TensorRT/Makefile                             |  25 ++
+ TensorRT/Makefile.config                      | 216 ++++++++++++++
+ TensorRT/README.md                            | 277 ------------------
+ TensorRT/build/.gitignore                     |   2 -
+ TensorRT/cudaComputeVersion.cu                |   9 -
+ .../bev_pool_v2 => include}/bevPoolKernel.h   |   0
+ .../bev_pool_v2 => include}/bevPoolPlugin.h   |   0
+ .../{common => include}/checkMacrosPlugin.cpp |   0
+ .../{common => include}/checkMacrosPlugin.h   |   0
+ TensorRT/{common => include}/cuda_helper.cu   |   0
+ TensorRT/{common => include}/cuda_helper.h    |   0
+ TensorRT/{common => include}/cuda_int8.h      |   0
+ .../gridSamplerKernel.h                       |   0
+ .../gridSamplerPlugin.h                       |   0
+ TensorRT/{common => include}/helper.h         |   0
+ .../inverse => include}/inverseKernel.h       |   0
+ .../inverse => include}/inversePlugin.h       |   0
+ .../modulatedDeformableConv2dKernel.h         |   0
+ .../modulatedDeformableConv2dPlugin.h         |   0
+ .../multiHeadAttnKernel.h                     |   0
+ .../multiHeadAttnPlugin.h                     |   0
+ .../multiHeadFlashAttnKernel.h                |   0
+ .../multiScaleDeformableAttnKernel.h          |   0
+ .../multiScaleDeformableAttnPlugin.h          |   0
+ .../{plugin/rotate => include}/rotateKernel.h |   0
+ .../{plugin/rotate => include}/rotatePlugin.h |   0
+ TensorRT/{common => include}/serialize.h      |   0
+ TensorRT/install.sh                           |   4 -
+ .../bev_pool_v2 => kernels}/bevPoolKernel.cu  |   0
+ .../gridSamplerKernel.cu                      |   0
+ .../inverse => kernels}/inverseKernel.cu      |   0
+ .../modulatedDeformableConv2dKernel.cu        |   0
+ .../multiHeadAttnKernel.cu                    |   0
+ .../multiHeadFlashAttnKernel.cu               |   0
+ .../multiScaleDeformableAttnKernel.cu         |   0
+ .../rotate => kernels}/rotateKernel.cu        |   0
+ TensorRT/lib/.gitignore                       |   2 -
+ .../bev_pool_v2 => plugins}/bevPoolPlugin.cpp |   0
+ .../gridSamplerPlugin.cpp                     |   0
+ .../inverse => plugins}/inversePlugin.cpp     |   0
+ .../modulatedDeformableConv2dPlugin.cpp       |   0
+ .../multiHeadAttnPlugin.cpp                   |   0
+ .../multiScaleDeformableAttnPlugin.cpp        |   0
+ .../rotate => plugins}/rotatePlugin.cpp       |   0
+ 45 files changed, 241 insertions(+), 331 deletions(-)
+ delete mode 100644 TensorRT/CMakeLists.txt
+ create mode 100644 TensorRT/Makefile
+ create mode 100644 TensorRT/Makefile.config
+ delete mode 100644 TensorRT/README.md
+ delete mode 100644 TensorRT/build/.gitignore
+ delete mode 100644 TensorRT/cudaComputeVersion.cu
+ rename TensorRT/{plugin/bev_pool_v2 => include}/bevPoolKernel.h (100%)
+ rename TensorRT/{plugin/bev_pool_v2 => include}/bevPoolPlugin.h (100%)
+ rename TensorRT/{common => include}/checkMacrosPlugin.cpp (100%)
+ rename TensorRT/{common => include}/checkMacrosPlugin.h (100%)
+ rename TensorRT/{common => include}/cuda_helper.cu (100%)
+ rename TensorRT/{common => include}/cuda_helper.h (100%)
+ rename TensorRT/{common => include}/cuda_int8.h (100%)
+ rename TensorRT/{plugin/grid_sampler => include}/gridSamplerKernel.h (100%)
+ rename TensorRT/{plugin/grid_sampler => include}/gridSamplerPlugin.h (100%)
+ rename TensorRT/{common => include}/helper.h (100%)
+ rename TensorRT/{plugin/inverse => include}/inverseKernel.h (100%)
+ rename TensorRT/{plugin/inverse => include}/inversePlugin.h (100%)
+ rename TensorRT/{plugin/modulated_deformable_conv2d => include}/modulatedDeformableConv2dKernel.h (100%)
+ rename TensorRT/{plugin/modulated_deformable_conv2d => include}/modulatedDeformableConv2dPlugin.h (100%)
+ rename TensorRT/{plugin/multi_head_attn => include}/multiHeadAttnKernel.h (100%)
+ rename TensorRT/{plugin/multi_head_attn => include}/multiHeadAttnPlugin.h (100%)
+ rename TensorRT/{plugin/multi_head_attn => include}/multiHeadFlashAttnKernel.h (100%)
+ rename TensorRT/{plugin/multi_scale_deformable_attn => include}/multiScaleDeformableAttnKernel.h (100%)
+ rename TensorRT/{plugin/multi_scale_deformable_attn => include}/multiScaleDeformableAttnPlugin.h (100%)
+ rename TensorRT/{plugin/rotate => include}/rotateKernel.h (100%)
+ rename TensorRT/{plugin/rotate => include}/rotatePlugin.h (100%)
+ rename TensorRT/{common => include}/serialize.h (100%)
+ delete mode 100644 TensorRT/install.sh
+ rename TensorRT/{plugin/bev_pool_v2 => kernels}/bevPoolKernel.cu (100%)
+ rename TensorRT/{plugin/grid_sampler => kernels}/gridSamplerKernel.cu (100%)
+ rename TensorRT/{plugin/inverse => kernels}/inverseKernel.cu (100%)
+ rename TensorRT/{plugin/modulated_deformable_conv2d => kernels}/modulatedDeformableConv2dKernel.cu (100%)
+ rename TensorRT/{plugin/multi_head_attn => kernels}/multiHeadAttnKernel.cu (100%)
+ rename TensorRT/{plugin/multi_head_attn => kernels}/multiHeadFlashAttnKernel.cu (100%)
+ rename TensorRT/{plugin/multi_scale_deformable_attn => kernels}/multiScaleDeformableAttnKernel.cu (100%)
+ rename TensorRT/{plugin/rotate => kernels}/rotateKernel.cu (100%)
+ delete mode 100644 TensorRT/lib/.gitignore
+ rename TensorRT/{plugin/bev_pool_v2 => plugins}/bevPoolPlugin.cpp (100%)
+ rename TensorRT/{plugin/grid_sampler => plugins}/gridSamplerPlugin.cpp (100%)
+ rename TensorRT/{plugin/inverse => plugins}/inversePlugin.cpp (100%)
+ rename TensorRT/{plugin/modulated_deformable_conv2d => plugins}/modulatedDeformableConv2dPlugin.cpp (100%)
+ rename TensorRT/{plugin/multi_head_attn => plugins}/multiHeadAttnPlugin.cpp (100%)
+ rename TensorRT/{plugin/multi_scale_deformable_attn => plugins}/multiScaleDeformableAttnPlugin.cpp (100%)
+ rename TensorRT/{plugin/rotate => plugins}/rotatePlugin.cpp (100%)
+
+diff --git a/TensorRT/CMakeLists.txt b/TensorRT/CMakeLists.txt
+deleted file mode 100644
+index 8ff6da2..0000000
+--- a/TensorRT/CMakeLists.txt
++++ /dev/null
+@@ -1,37 +0,0 @@
+-cmake_minimum_required(VERSION 3.12)
+-
+-project(tensorrt_ops LANGUAGES CXX CUDA)
+-find_package(CUDA REQUIRED)
+-
+-execute_process(COMMAND nvcc -lcuda ${CMAKE_CURRENT_SOURCE_DIR}/cudaComputeVersion.cu -o /tmp/cudaComputeVersion)
+-execute_process(COMMAND /tmp/cudaComputeVersion
+-        RESULT_VARIABLE CUDA_RETURN_CODE
+-        OUTPUT_VARIABLE ARCH)
+-execute_process(COMMAND rm /tmp/cudaComputeVersion)
+-
+-if(NOT CMAKE_TENSORRT_PATH)
+-    message( "Need: -DCMAKE_TENSORRT_PATH=/path/to/TensorRT")
+-
+-endif()
+-
+-include_directories(common)
+-include_directories(/usr/local/cuda/include)
+-include_directories(/usr/local/include)
+-
+-message(STATUS "Linking TensorRT directory: ${CMAKE_TENSORRT_PATH}")
+-link_directories(${CMAKE_TENSORRT_PATH}/lib)
+-include_directories(${CMAKE_TENSORRT_PATH}/include)
+-
+-file(GLOB_RECURSE TENSORRT_OPS_SRCS common/*.cpp common/*.cu plugin/*/*.cu plugin/*/*.cpp)
+-
+-set(SHARED_TARGET tensorrt_ops)
+-add_library(${SHARED_TARGET} SHARED ${TENSORRT_OPS_SRCS})
+-target_compile_options(${SHARED_TARGET} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-arch=sm_${ARCH}>)
+-
+-target_link_libraries(${SHARED_TARGET} PUBLIC cudnn nvinfer cublas)
+-set_target_properties(${SHARED_TARGET} PROPERTIES CUDA_ARCHITECTURES "${ARCH}")
+-
+-install(
+-        TARGETS ${SHARED_TARGET}
+-        LIBRARY DESTINATION ${CMAKE_SOURCE_DIR}/lib
+-)
+diff --git a/TensorRT/Makefile b/TensorRT/Makefile
+new file mode 100644
+index 0000000..b6fd841
+--- /dev/null
++++ b/TensorRT/Makefile
+@@ -0,0 +1,25 @@
++# SPDX-FileCopyrightText: Copyright (c) 2023-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
++# SPDX-License-Identifier: LicenseRef-NvidiaProprietary
++#
++# NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
++# property and proprietary rights in and to this material, related
++# documentation and any modifications thereto. Any use, reproduction,
++# disclosure or distribution of this material and related documentation
++# without an express license agreement from NVIDIA CORPORATION or
++# its affiliates is strictly prohibited.
++
++SHELL = /bin/bash -o pipefail
++TARGET ?= $(shell uname -m)
++VERBOSE ?= 0
++ifeq ($(VERBOSE), 1)
++	AT =
++else
++	AT = @
++endif
++
++OUTNAME = fb-occ_trt_plugin
++SRC_FILES = plugins/*.cpp
++CU_FILES = kernels/*.cu
++EXTRA_INCPATHS = -Iinclude
++MAKEFILE ?= ./Makefile.config
++include $(MAKEFILE)
+diff --git a/TensorRT/Makefile.config b/TensorRT/Makefile.config
+new file mode 100644
+index 0000000..6e57b3a
+--- /dev/null
++++ b/TensorRT/Makefile.config
+@@ -0,0 +1,216 @@
++# SPDX-FileCopyrightText: Copyright (c) 2023-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
++# SPDX-License-Identifier: LicenseRef-NvidiaProprietary
++#
++# NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
++# property and proprietary rights in and to this material, related
++# documentation and any modifications thereto. Any use, reproduction,
++# disclosure or distribution of this material and related documentation
++# without an express license agreement from NVIDIA CORPORATION or
++# its affiliates is strictly prohibited.
++
++SRC = $(SRC_FILES)
++
++EXTRA_DIRECTORIES =
++EXTRA_FILES =
++
++USE_QCC ?= 1
++SAFETY_RUNTIME ?= 0
++CUDA ?= cuda-11.4
++TARGET ?= $(shell uname -m)
++
++.SUFFIXES:
++CUDA_TRIPLE ?= x86_64-linux
++DLSW_TRIPLE ?= x86_64-linux-gnu
++TARGET_RELEASE = $(OUTNAME)_x86_64.so
++TARGET_DEBUG   = $(OUTNAME)_x86_64_debug.so
++ifeq ($(TARGET), aarch64)
++  CUDA_TRIPLE = aarch64-linux
++  DLSW_TRIPLE = aarch64-linux-gnu
++  PDK_DIR ?= /drive/drive-linux
++  TARGET_RELEASE = $(OUTNAME)_aarch64.so
++  TARGET_DEBUG = $(OUTNAME)_aarch64_debug.so
++endif
++
++ifeq ($(CUDA_INSTALL_DIR),)
++  CUDA_INSTALL_DIR ?= /usr/local/cuda
++  $(warning CUDA_INSTALL_DIR variable is not specified, using $(CUDA_INSTALL_DIR) by default, use CUDA_INSTALL_DIR=<cuda_directory> to change.)
++endif
++
++PDK_LIB_DIR :=
++PDK_INC_DIR :=
++ifneq ($(PDK_DIR),)
++  PDK_LIB_DIR := $(PDK_DIR)/lib-target
++  PDK_INC_DIR := $(PDK_DIR)/include
++endif
++
++ifeq ($(TRT_INC_DIR),)
++  TRT_INC_DIR ?= /usr/include/$(DLSW_TRIPLE)
++  $(warning TRT_INC_DIR is not specified, searching $(TRT_INC_DIR) by default, use TRT_INC_DIR=<trt_inc_directory> to change.)
++endif
++
++ifeq ($(TRT_LIB_DIR),)
++  TRT_LIB_DIR ?= /usr/lib/$(DLSW_TRIPLE)
++  $(warning TRT_LIB_DIR is not specified, searching $(TRT_LIB_DIR) by default, use TRT_LIB_DIR=<trt_lib_directory> to change.)
++endif
++
++NVCC ?= $(CUDA_INSTALL_DIR)/bin/nvcc
++
++ifeq ($(TARGET), aarch64)
++  ifeq ($(shell uname -m), aarch64)
++    CC = g++
++  else
++    CC = aarch64-linux-gnu-g++
++  endif
++  CUCC = $(NVCC) -m64 -ccbin $(CC) --target-directory $(CUDA_TRIPLE)
++else ifeq ($(TARGET), x86_64)
++  CC = g++
++  CUCC = $(NVCC) -m64 --target-directory $(CUDA_TRIPLE)
++else
++  $(error Auto-detection of platform failed. Please specify one of the following arguments to make: TARGET=[aarch64|x86_64])
++endif
++
++ifdef VERBOSE
++  AT=
++else
++  AT=@
++endif
++
++AR = ar cr
++ECHO = @echo
++
++SHELL = /bin/sh
++
++ROOT_PATH ?= .
++OUT_PATH = $(ROOT_PATH)/bin/$(TARGET)
++OUTDIR = $(OUT_PATH)
++
++define concat
++$1$2$3$4$5$6$7$8
++endef
++
++define make-dir
++  if [ ! -d $1 ]; then mkdir -p $1; fi
++endef
++
++ifeq ($(SAFETY_RUNTIME), 1)
++  CUDART_LIB = -lcudart_static
++  NVINFER_LIB = -lnvinfer_safe
++else
++  CUDART_LIB = -lcudart
++  NVINFER_LIB = -lnvinfer -lnvinfer_safe -lnvinfer_plugin -lnvinfer_checker
++endif
++
++######################
++INCPATHS=
++LIBPATHS=
++COMMON_LIBS=
++
++ifneq ($(shell uname -m), $(TARGET))
++  LIBPATHS += -L"/usr/lib/$(DLSW_TRIPLE)/stubs"
++  LIBPATHS += -L"$(CUDA_INSTALL_DIR)/targets/$(CUDA_TRIPLE)/lib/stubs"
++else
++  INCPATHS += -I"$(CUDA_INSTALL_DIR)/include"
++endif
++INCPATHS += -I"$(CUDA_INSTALL_DIR)/targets/$(CUDA_TRIPLE)/include"
++LIBPATHS += -L"$(CUDA_INSTALL_DIR)/targets/$(CUDA_TRIPLE)/lib"
++INCPATHS += -I"$(TRT_INC_DIR)"
++LIBPATHS += -L"$(TRT_LIB_DIR)"
++
++CU_LIBPATHS ::= $(LIBPATHS)
++
++INCPATHS += $(EXTRA_INCPATHS)
++
++.SUFFIXES:
++vpath %.h $(EXTRA_DIRECTORIES)
++vpath %.cpp $(EXTRA_DIRECTORIES)
++
++COMMON_FLAGS += -Wall -std=c++14
++COMMON_FLAGS += $(INCPATHS)
++
++COMMON_LD_FLAGS += $(LIBPATHS) -L$(OUTDIR) -Wl,-rpath-link="$(TRT_LIB_DIR)" $(STUBS_DIR)
++
++OBJDIR = $(call concat,$(OUTDIR),/chobj)
++DOBJDIR = $(call concat,$(OUTDIR),/dchobj)
++
++COMMON_LIBS += $(CUDART_LIB)
++COMMON_LIBS += -lrt -ldl -lpthread
++
++CFLAGS = $(COMMON_FLAGS) -fPIC
++CFLAGSD = $(COMMON_FLAGS) -fPIC -g
++LFLAGS = $(COMMON_LD_FLAGS) -shared
++LFLAGSD = $(COMMON_LD_FLAGS) -shared
++
++ifeq ($(SAFETY_RUNTIME), 1)
++  CFLAGS += -DSAFETY_RUNTIME
++  CFLAGSD += -DSAFETY_RUNTIME
++endif
++
++OBJS    =$(patsubst %.cpp, $(OBJDIR)/%.o, $(wildcard $(SRC) $(EXTRA_FILE)))
++DOBJS   =$(patsubst %.cpp, $(DOBJDIR)/%.o, $(wildcard $(SRC) $(EXTRA_FILE)))
++CUOBJS  =$(patsubst %.cu, $(OBJDIR)/%.o, $(wildcard $(CU_FILES)))
++CUDOBJS =$(patsubst %.cu, $(DOBJDIR)/%.o, $(wildcard $(CU_FILES)))
++
++ifeq ($(TARGET),$(filter $(TARGET),aarch64))
++  ifeq ($(CUDA), cuda-11.4)
++    GENCODES = -gencode arch=compute_87,code=sm_87
++  else
++    $(error CUDA version $(CUDA) is not supported, please use cuda-11.4 instead.)
++  endif
++else
++  GENCODES = -arch=sm_70 -gencode=arch=compute_70,code=sm_70 -gencode=arch=compute_75,code=sm_75 -gencode=arch=compute_80,code=sm_80 -gencode=arch=compute_86,code=sm_86
++endif
++
++# Always use C+=14 for nvcc
++COMMON_CUFLAGS := -std=c++14 -Xcompiler=-fPIC
++
++CUFLAGS = $(COMMON_CUFLAGS)
++CUFLAGS += -Xcompiler=-Wno-deprecated-declarations
++CUFLAGS += -Xcompiler=-O2,-fno-aggressive-loop-optimizations
++CUFLAGS += $(GENCODES) -DNDEBUG
++CUFLAGSD = $(CUFLAGS) -g
++
++all: debug release
++
++release : $(OUTDIR)/$(TARGET_RELEASE)
++
++debug   : $(OUTDIR)/$(TARGET_DEBUG)
++
++$(OUTDIR)/$(TARGET_RELEASE) : $(OBJS) $(CUOBJS)
++	$(call make-dir,$(dir $@))
++	$(ECHO) Linking: $@
++	$(AT)$(CC) -o $@ $^ $(LFLAGS) -Wl,--start-group $(NVINFER_LIB) $(COMMON_LIBS) -Wl,--end-group
++
++$(OUTDIR)/$(TARGET_DEBUG) : $(DOBJS) $(CUDOBJS)
++	$(call make-dir,$(dir $@))
++	$(ECHO) Linking: $@
++	$(AT)$(CC) -o $@ $^ $(LFLAGSD) -Wl,--start-group $(NVINFER_LIB) $(COMMON_LIBS) -Wl,--end-group
++
++$(OBJDIR)/%.o: %.cpp
++	$(call make-dir,$(dir $@))
++	$(ECHO) Compiling release: $<
++	$(AT)$(CC) -o $@ -c $< $(CFLAGS)
++
++$(DOBJDIR)/%.o: %.cpp
++	$(call make-dir,$(dir $@))
++	$(ECHO) Compiling debug: $<
++	$(AT)$(CC) -o $@ -c $< $(CFLAGSD)
++
++$(OBJDIR)/%.o: %.cu
++	$(call make-dir,$(dir $@))
++	$(ECHO) Compiling CUDA release: $<
++	$(AT)$(CUCC) $(CUFLAGS) $(INCPATHS) $(CU_LIBPATH) -c -o $@ $<
++
++$(DOBJDIR)/%.o: %.cu
++	$(call make-dir,$(dir $@))
++	$(ECHO) Compiling CUDA debug: $<
++	$(AT)$(CUCC) $(CUFLAGSD) $(INCPATHS) $(CU_LIBPATH) -c -o $@ $<
++
++OBJDIRS = $(OBJDIR)/$(EXTRA_DIRECTORIES) $(OBJDIR) $(DOBJDIR) $(OUTDIR)/$(TARGET_RELEASE) $(OUTDIR)/$(TARGET_DEBUG)
++
++clean:
++	$(ECHO) Cleaning...
++	$(AT)-rm -rf $(OBJDIRS)
++
++ifneq "$(MAKECMDGOALS)" "clean"
++  -include $(OBJDIR)/*.d $(DOBJDIR)/*.d
++endif
+diff --git a/TensorRT/README.md b/TensorRT/README.md
+deleted file mode 100644
+index b5e930e..0000000
+--- a/TensorRT/README.md
++++ /dev/null
+@@ -1,277 +0,0 @@
+-# TensorRT Plugins
+-
+-## Plugins
+-
+-### Grid Sampler
+-
+-|      OP Name      |                          Attributes                          |        Inputs         |  Outputs  | FP32 Speed | FP16 Speed | INT8 Speed | Half Type |     Tensor Format     | Test Device |
+-| :---------------: | :----------------------------------------------------------: | :-------------------: | :-------: | :--------: | :--------: | :--------: | :-------: | :-------------------: | :---------: |
+-| GridSampler2DTRT  | interpolation_mode: int<br />padding_mode: int<br />align_corners: int | input: T<br />grid: T | output: T |     x1     |    x2.0    |    x3.8    |  nv_half  |    kLinear, kCHW4     | RTX 2080Ti  |
+-| GridSampler2DTRT2 | interpolation_mode: int<br />padding_mode: int<br />align_corners: int | input: T<br />grid: T | output: T |     x1     |    x3.1    |    x3.8    | nv_half2  | kLinear, kCHW2, kCHW4 | RTX 2080Ti  |
+-| GridSampler3DTRT  | interpolation_mode: int<br />padding_mode: int<br />align_corners: int | input: T<br />grid: T | output: T |     x1     |    x1.3    |     -      |  nv_half  |        kLinear        | RTX 2080Ti  |
+-| GridSampler3DTRT2 | interpolation_mode: int<br />padding_mode: int<br />align_corners: int | input: T<br />grid: T | output: T |     x1     |    x2.2    |     -      | nv_half2  |        kLinear        | RTX 2080Ti  |
+-
+-#### Inputs
+-
+-* input: T[float/half/half2/int8]
+-
+-  Tensor shape: `[N, C, H_in, W_in]` (4D case) or `[N, C, D_in, H_in, W_in]` (5D case)
+-
+-* grid: T[float/half/half2/int8]
+-
+-  Tensor shape: `[N, 2, H_out, W_out]` (4D case) or `[N, 3, D_out, H_out, W_out]` (5D case)
+-
+-  `grid` specifies the sampling pixel locations normalized by the `input` spatial dimensions. Therefore, it should have most values in the range of ``[-10, 10]``. For example, values ``x = -10, y = -10`` is the left-top pixel of `input`, and values  ``x = 10, y = 10`` is the right-bottom pixel of `input`.
+-
+-#### Attributes
+-
+-* interpolation_mode: int
+-
+-  Interpolation mode to calculate output values. (0: `bilinear` , 1: `nearest`, 2: `bicubic`) 
+-
+-  Note:  `bicubic` supports only 4-D input.
+-
+-* padding_mode: int
+-
+-  Padding mode for outside grid values. (0: `zeros`, 1: `border`, 2: `reflection`)
+-
+-* align_corners: int
+-
+-  If `align_corners=1`, the extrema (`-1` and `1`) are considered as referring to the center points of the input's corner pixels. If `align_corners=0`, they are instead considered as referring to the corner points of the input's corner pixels, making the sampling more resolution agnostic.
+-
+-#### Outputs
+-
+-* output: T[float/half/half2/int8]
+-
+-  Tensor shape: `[N, C, H_out, W_out]` (4D case) or `[N, C, D_out, H_out, W_out]` (5D case)
+-
+-### Multi-scale Deformable Attention
+-
+-|           OP Name            | Attributes |                            Inputs                            |  Outputs  | FP32 Speed | FP16 Speed | INT8/FP16 Speed | Half Type | Tensor Format | Test Device |
+-| :--------------------------: | :--------: | :----------------------------------------------------------: | :-------: | :--------: | :--------: | :-------------: | :-------: | :-----------: | :---------: |
+-| MultiScaleDeformableAttnTRT  |     -      | value: T<br />value_spatial_shapes: T<br />sampling_locations: T<br />attention_weights: T | output: T |     x1     |    x1.3    |      x3.2       |  nv_half  |    kLinear    | RTX 2080Ti  |
+-| MultiScaleDeformableAttnTRT2 |     -      | value: T<br />value_spatial_shapes: T<br />value_level_start_index: T<br />sampling_locations: T<br />attention_weights: T | output: T |     x1     |    x2.0    |      x2.7       | nv_half2  |    kLinear    | RTX 2080Ti  |
+-
+-#### Inputs
+-
+-* value: T[float/half/half2/int8]
+-
+-  Tensor shape: `[N, num_keys, mum_heads, channel]` 
+-
+-* value_spatial_shapes: T[int32]
+-
+-  Spatial shape of each feature map, has shape `[num_levels, 2]`, last dimension 2 represent (h, w)
+-
+-* reference_points: T[float/half2]
+-
+-  The reference points.
+-
+-  Tensor shape: `[N, num_queries, 1, points_per_group * 2]` 
+-
+-* sampling_offsets: T[float/half/half2/int8]
+-
+-  The offset of sampling points.
+-
+-  Tensor shape: `[N, num_queries, num_heads, num_levels * num_points * 2]` 
+-
+-* attention_weights: T[float/half/int8]
+-
+-  The weight of sampling points used when calculate the attention (before softmax), has shape` [N ,num_queries, num_heads, num_levels * num_points]`.
+-
+-#### Attributes
+-
+-​	-
+-
+-#### Outputs
+-
+-* output: T[float/half/int8]
+-
+-  Tensor shape: `[N, num_queries, mum_heads, channel]`
+-
+-### Modulated Deformable Conv2d
+-
+-|            OP Name            |                          Attributes                          |                            Inputs                            |  Outputs  | FP32 Speed | FP16 Speed | INT8/FP16 Speed | Half Type |     Tensor Format     | Test Device |
+-| :---------------------------: | :----------------------------------------------------------: | :----------------------------------------------------------: | :-------: | :--------: | :--------: | :-------------: | :-------: | :-------------------: | :---------: |
+-| ModulatedDeformableConv2dTRT  | stride: int[2]<br />padding: int[2]<br />dilation: int[2]<br />groups: int<br />deform_groups: int | input: T<br />offset: T<br />mask: T<br />weight: T<br />bias: T (optional) | output: T |     x1     |    x2.9    |      x3.7       |  nv_half  |    kLinear, kCHW4     | RTX 2080Ti  |
+-| ModulatedDeformableConv2dTRT2 | stride: int[2]<br />padding: int[2]<br />dilation: int[2]<br />groups: int<br />deform_groups: int | input: T<br />offset: T<br />mask: T<br />weight: T<br />bias: T (optional) | output: T |     x1     |    x3.5    |      x3.7       | nv_half2  | kLinear, kCHW2, kCHW4 | RTX 2080Ti  |
+-
+-#### Inputs
+-
+-* input: T[float/half/half2/int8]
+-
+-  Tensor shape: `[N, C_in, H_in, W_in]` 
+-
+-* offset: T[float/half/half2/int8]
+-
+-  Tensor shape: `[N, deform_groups*K_h*K_w*2, H_out, W_out]`
+-
+-* mask: T[float/half/half2/int8]
+-
+-  Tensor shape: `[N, deform_groups*K_h*K_w, H_out, W_out]`
+-
+-* weight: T[float/half/half2/int8]
+-
+-  Tensor shape: `[C_out, C_in/groups, K_h, K_w]`
+-
+-* bias: T[float/half/half2] (optional)
+-
+-  Tensor shape: `[C_out]`
+-
+-#### Attributes
+-
+-* stride: int[2]
+-
+-  Same as torch.nn.Conv2d.
+-
+-* padding: int[2]
+-
+-  Same as torch.nn.Conv2d.
+-
+-* dilation: int[2]
+-
+-  Same as torch.nn.Conv2d.
+-
+-* groups: int
+-
+-  Same as torch.nn.Conv2d.
+-
+-* deform_groups: int
+-
+-  Deformable conv2d groups.
+-
+-#### Outputs
+-
+-* output: T[float/half/half2/int8]
+-
+-  Tensor shape: `[N, C_out, H_out, W_out]`
+-
+-**NOTE: Values (C_in / groups) and (C_in / deform_groups) should be even numbers.**
+-
+-### Rotate
+-
+-|  OP Name   |     Attributes     |               Inputs                |  Outputs  | FP32 Speed | FP16 Speed | INT8/FP16 Speed | Half Type |     Tensor Format     | Test Device |
+-| :--------: | :----------------: | :---------------------------------: | :-------: | :--------: | :--------: | :-------------: | :-------: | :-------------------: | :---------: |
+-| RotateTRT  | interpolation: int | img: T<br />angle: T<br />center: T | output: T |     x1     |    X1.8    |      X4.4       |  nv_half  |    kLinear, kCHW4     | RTX 2080Ti  |
+-| RotateTRT2 | interpolation: int | img: T<br />angle: T<br />center: T | output: T |     x1     |    x2.2    |      x4.4       | nv_half2  | kLinear, kCHW2, kCHW4 | RTX 2080Ti  |
+-
+-#### Inputs
+-
+-* img: T[float/half/half2/int8]
+-
+-  Tensor shape: `[C, H, W]` 
+-
+-* angle: T[float/half/half2]
+-
+-  Tensor shape: `[1]`
+-
+-* center: T[float/half/half2]
+-
+-  Tensor shape: `[2]`
+-
+-
+-#### Attributes
+-
+-* interpolation: int
+-
+-  Interpolation mode to calculate output values. (0: `bilinear` , 1: `nearest`) 
+-
+-#### Outputs
+-
+-* output: T[float/half/half2/int8]
+-
+-  Tensor shape: `[C, H, W]`
+-
+-### Inverse
+-
+-|  OP Name   | Attributes |     Inputs      |     Outputs      | Tensor Format | Test Device |
+-| :--------: | :--------: | :-------------: | :--------------: | :-----------: | :---------: |
+-| InverseTRT |     -      | input: T[float] | output: T[float] |    kLinear    | RTX 2080Ti  |
+-
+-#### Inputs
+-
+-* input: T[float]
+-
+-  Tensor shape: `[B, C, H, W]` 
+-
+-#### Outputs
+-
+-* output: T[float]
+-
+-  Tensor shape: `[B, C, H, W]`
+-
+-### BEV Pool
+-
+-|    OP Name    |             Attributes              |                            Inputs                            |  Outputs  | FP32 Speed | FP16 Speed | INT8 Speed | Half Type | Tensor Format | Test Device |
+-| :-----------: | :---------------------------------: | :----------------------------------------------------------: | :-------: | :--------: | :--------: | :--------: | :-------: | :-----------: | :---------: |
+-| BEVPoolV2TRT  | out_height: int<br />out_width: int | depth: T<br />feat: T<br />ranks_depth: T<br />ranks_feat: T<br /> ranks_bev: T<br /> interval_starts: T<br />interval_lengths: T | output: T |     x1     |    X1.1    |    X2.1    |  nv_half  |    kLinear    | RTX 2080Ti  |
+-| BEVPoolV2TRT2 | out_height: int<br />out_width: int | depth: T<br />feat: T<br />ranks_depth: T<br />ranks_feat: T<br /> ranks_bev: T<br /> interval_starts: T<br />interval_lengths: T | output: T |     x1     |    x1.4    |    X2.1    | nv_half2  |    kLinear    | RTX 2080Ti  |
+-
+-#### Inputs
+-
+-* depth: T[float/half/half2/int8]
+-
+-  Tensor shape: `[Cam, D, H, W]` 
+-
+-* feat: T[float/half/half2/int8]
+-
+-  Tensor shape: `[Cam, H, W, C]`
+-
+-* ranks_depth: T[int32]
+-
+-* ranks_feat: T[int32]
+-
+-* ranks_bev: T[int32]
+-
+-* interval_starts: T[int32]
+-
+-* interval_lengths: T[int32]
+-
+-
+-#### Attributes
+-
+-* out_height: int
+-
+-  BEV feature height
+-
+-* out_width: int
+-
+-  BEV feature width
+-
+-#### Outputs
+-
+-* output: T[float/half/half2/int8]
+-
+-  Tensor shape: `[1, out_height, out_width, C]`
+-
+-### Multi-Head Attention
+-
+-| OP Name |               Inputs               |  Outputs  | FP32 Speed NHMA | FP16 Speed NHMA | FP32 Speed FHMA | FP16 Speed FHMA | INT8 Speed FHMA | Half Type | Test Device |
+-| :-----: | :--------------------------------: | :-------: | :-------------: | :-------------: | :-------------: | :-------------: | :-------------: | :-------: | :---------: |
+-| QKVTRT  | query: T<br />key: T<br />value: T | output: T |       x1        |      X2.0       |      x4.6       |      x6.1       |      x8.2       |  nv_half  | RTX 2080Ti  |
+-| QKVTRT2 | query: T<br />key: T<br />value: T | output: T |       x1        |      X2.1       |      x4.6       |      x6.3       |      x8.2       | nv_half2  | RTX 2080Ti  |
+-
+-#### Inputs
+-
+-* query: T[float/half/half2/int8]
+-
+-  Tensor shape: `[batch, q_len, channel]` 
+-
+-* key: T[float/half/half2/int8]
+-
+-  Tensor shape: `[batch, kv_len, channel]`
+-
+-* value: T[float/half/half2/int8]
+-
+-  Tensor shape: `[batch, kv_len, channel]`
+-
+-#### Attributes
+-
+-​	-
+-
+-#### Outputs
+-
+-* output: T[float/half/half2/int8]
+-
+-  Tensor shape: `[batch, q_len, channel]` 
+-
+-**NOTE: If `q_len` and `kv_len` are both multiples of 64, the plugin will run with Flash Multi-Head Attention (FMHA), else Naive Multi-Head Attention (NMHA).**
+diff --git a/TensorRT/build/.gitignore b/TensorRT/build/.gitignore
+deleted file mode 100644
+index d6b7ef3..0000000
+--- a/TensorRT/build/.gitignore
++++ /dev/null
+@@ -1,2 +0,0 @@
+-*
+-!.gitignore
+diff --git a/TensorRT/cudaComputeVersion.cu b/TensorRT/cudaComputeVersion.cu
+deleted file mode 100644
+index 1ee83ba..0000000
+--- a/TensorRT/cudaComputeVersion.cu
++++ /dev/null
+@@ -1,9 +0,0 @@
+-#include <cstdio>
+-
+-int main() {
+-  cudaDeviceProp prop;
+-  cudaGetDeviceProperties(&prop, 0);
+-  int v = prop.major * 10 + prop.minor;
+-  printf("%d", v);
+-  return 0;
+-}
+diff --git a/TensorRT/plugin/bev_pool_v2/bevPoolKernel.h b/TensorRT/include/bevPoolKernel.h
+similarity index 100%
+rename from TensorRT/plugin/bev_pool_v2/bevPoolKernel.h
+rename to TensorRT/include/bevPoolKernel.h
+diff --git a/TensorRT/plugin/bev_pool_v2/bevPoolPlugin.h b/TensorRT/include/bevPoolPlugin.h
+similarity index 100%
+rename from TensorRT/plugin/bev_pool_v2/bevPoolPlugin.h
+rename to TensorRT/include/bevPoolPlugin.h
+diff --git a/TensorRT/common/checkMacrosPlugin.cpp b/TensorRT/include/checkMacrosPlugin.cpp
+similarity index 100%
+rename from TensorRT/common/checkMacrosPlugin.cpp
+rename to TensorRT/include/checkMacrosPlugin.cpp
+diff --git a/TensorRT/common/checkMacrosPlugin.h b/TensorRT/include/checkMacrosPlugin.h
+similarity index 100%
+rename from TensorRT/common/checkMacrosPlugin.h
+rename to TensorRT/include/checkMacrosPlugin.h
+diff --git a/TensorRT/common/cuda_helper.cu b/TensorRT/include/cuda_helper.cu
+similarity index 100%
+rename from TensorRT/common/cuda_helper.cu
+rename to TensorRT/include/cuda_helper.cu
+diff --git a/TensorRT/common/cuda_helper.h b/TensorRT/include/cuda_helper.h
+similarity index 100%
+rename from TensorRT/common/cuda_helper.h
+rename to TensorRT/include/cuda_helper.h
+diff --git a/TensorRT/common/cuda_int8.h b/TensorRT/include/cuda_int8.h
+similarity index 100%
+rename from TensorRT/common/cuda_int8.h
+rename to TensorRT/include/cuda_int8.h
+diff --git a/TensorRT/plugin/grid_sampler/gridSamplerKernel.h b/TensorRT/include/gridSamplerKernel.h
+similarity index 100%
+rename from TensorRT/plugin/grid_sampler/gridSamplerKernel.h
+rename to TensorRT/include/gridSamplerKernel.h
+diff --git a/TensorRT/plugin/grid_sampler/gridSamplerPlugin.h b/TensorRT/include/gridSamplerPlugin.h
+similarity index 100%
+rename from TensorRT/plugin/grid_sampler/gridSamplerPlugin.h
+rename to TensorRT/include/gridSamplerPlugin.h
+diff --git a/TensorRT/common/helper.h b/TensorRT/include/helper.h
+similarity index 100%
+rename from TensorRT/common/helper.h
+rename to TensorRT/include/helper.h
+diff --git a/TensorRT/plugin/inverse/inverseKernel.h b/TensorRT/include/inverseKernel.h
+similarity index 100%
+rename from TensorRT/plugin/inverse/inverseKernel.h
+rename to TensorRT/include/inverseKernel.h
+diff --git a/TensorRT/plugin/inverse/inversePlugin.h b/TensorRT/include/inversePlugin.h
+similarity index 100%
+rename from TensorRT/plugin/inverse/inversePlugin.h
+rename to TensorRT/include/inversePlugin.h
+diff --git a/TensorRT/plugin/modulated_deformable_conv2d/modulatedDeformableConv2dKernel.h b/TensorRT/include/modulatedDeformableConv2dKernel.h
+similarity index 100%
+rename from TensorRT/plugin/modulated_deformable_conv2d/modulatedDeformableConv2dKernel.h
+rename to TensorRT/include/modulatedDeformableConv2dKernel.h
+diff --git a/TensorRT/plugin/modulated_deformable_conv2d/modulatedDeformableConv2dPlugin.h b/TensorRT/include/modulatedDeformableConv2dPlugin.h
+similarity index 100%
+rename from TensorRT/plugin/modulated_deformable_conv2d/modulatedDeformableConv2dPlugin.h
+rename to TensorRT/include/modulatedDeformableConv2dPlugin.h
+diff --git a/TensorRT/plugin/multi_head_attn/multiHeadAttnKernel.h b/TensorRT/include/multiHeadAttnKernel.h
+similarity index 100%
+rename from TensorRT/plugin/multi_head_attn/multiHeadAttnKernel.h
+rename to TensorRT/include/multiHeadAttnKernel.h
+diff --git a/TensorRT/plugin/multi_head_attn/multiHeadAttnPlugin.h b/TensorRT/include/multiHeadAttnPlugin.h
+similarity index 100%
+rename from TensorRT/plugin/multi_head_attn/multiHeadAttnPlugin.h
+rename to TensorRT/include/multiHeadAttnPlugin.h
+diff --git a/TensorRT/plugin/multi_head_attn/multiHeadFlashAttnKernel.h b/TensorRT/include/multiHeadFlashAttnKernel.h
+similarity index 100%
+rename from TensorRT/plugin/multi_head_attn/multiHeadFlashAttnKernel.h
+rename to TensorRT/include/multiHeadFlashAttnKernel.h
+diff --git a/TensorRT/plugin/multi_scale_deformable_attn/multiScaleDeformableAttnKernel.h b/TensorRT/include/multiScaleDeformableAttnKernel.h
+similarity index 100%
+rename from TensorRT/plugin/multi_scale_deformable_attn/multiScaleDeformableAttnKernel.h
+rename to TensorRT/include/multiScaleDeformableAttnKernel.h
+diff --git a/TensorRT/plugin/multi_scale_deformable_attn/multiScaleDeformableAttnPlugin.h b/TensorRT/include/multiScaleDeformableAttnPlugin.h
+similarity index 100%
+rename from TensorRT/plugin/multi_scale_deformable_attn/multiScaleDeformableAttnPlugin.h
+rename to TensorRT/include/multiScaleDeformableAttnPlugin.h
+diff --git a/TensorRT/plugin/rotate/rotateKernel.h b/TensorRT/include/rotateKernel.h
+similarity index 100%
+rename from TensorRT/plugin/rotate/rotateKernel.h
+rename to TensorRT/include/rotateKernel.h
+diff --git a/TensorRT/plugin/rotate/rotatePlugin.h b/TensorRT/include/rotatePlugin.h
+similarity index 100%
+rename from TensorRT/plugin/rotate/rotatePlugin.h
+rename to TensorRT/include/rotatePlugin.h
+diff --git a/TensorRT/common/serialize.h b/TensorRT/include/serialize.h
+similarity index 100%
+rename from TensorRT/common/serialize.h
+rename to TensorRT/include/serialize.h
+diff --git a/TensorRT/install.sh b/TensorRT/install.sh
+deleted file mode 100644
+index 2f42916..0000000
+--- a/TensorRT/install.sh
++++ /dev/null
+@@ -1,4 +0,0 @@
+-cd build
+-cmake .. -DCMAKE_TENSORRT_PATH=/usr/local/TensorRT
+-make -j$(nproc)
+-make install
+diff --git a/TensorRT/plugin/bev_pool_v2/bevPoolKernel.cu b/TensorRT/kernels/bevPoolKernel.cu
+similarity index 100%
+rename from TensorRT/plugin/bev_pool_v2/bevPoolKernel.cu
+rename to TensorRT/kernels/bevPoolKernel.cu
+diff --git a/TensorRT/plugin/grid_sampler/gridSamplerKernel.cu b/TensorRT/kernels/gridSamplerKernel.cu
+similarity index 100%
+rename from TensorRT/plugin/grid_sampler/gridSamplerKernel.cu
+rename to TensorRT/kernels/gridSamplerKernel.cu
+diff --git a/TensorRT/plugin/inverse/inverseKernel.cu b/TensorRT/kernels/inverseKernel.cu
+similarity index 100%
+rename from TensorRT/plugin/inverse/inverseKernel.cu
+rename to TensorRT/kernels/inverseKernel.cu
+diff --git a/TensorRT/plugin/modulated_deformable_conv2d/modulatedDeformableConv2dKernel.cu b/TensorRT/kernels/modulatedDeformableConv2dKernel.cu
+similarity index 100%
+rename from TensorRT/plugin/modulated_deformable_conv2d/modulatedDeformableConv2dKernel.cu
+rename to TensorRT/kernels/modulatedDeformableConv2dKernel.cu
+diff --git a/TensorRT/plugin/multi_head_attn/multiHeadAttnKernel.cu b/TensorRT/kernels/multiHeadAttnKernel.cu
+similarity index 100%
+rename from TensorRT/plugin/multi_head_attn/multiHeadAttnKernel.cu
+rename to TensorRT/kernels/multiHeadAttnKernel.cu
+diff --git a/TensorRT/plugin/multi_head_attn/multiHeadFlashAttnKernel.cu b/TensorRT/kernels/multiHeadFlashAttnKernel.cu
+similarity index 100%
+rename from TensorRT/plugin/multi_head_attn/multiHeadFlashAttnKernel.cu
+rename to TensorRT/kernels/multiHeadFlashAttnKernel.cu
+diff --git a/TensorRT/plugin/multi_scale_deformable_attn/multiScaleDeformableAttnKernel.cu b/TensorRT/kernels/multiScaleDeformableAttnKernel.cu
+similarity index 100%
+rename from TensorRT/plugin/multi_scale_deformable_attn/multiScaleDeformableAttnKernel.cu
+rename to TensorRT/kernels/multiScaleDeformableAttnKernel.cu
+diff --git a/TensorRT/plugin/rotate/rotateKernel.cu b/TensorRT/kernels/rotateKernel.cu
+similarity index 100%
+rename from TensorRT/plugin/rotate/rotateKernel.cu
+rename to TensorRT/kernels/rotateKernel.cu
+diff --git a/TensorRT/lib/.gitignore b/TensorRT/lib/.gitignore
+deleted file mode 100644
+index d6b7ef3..0000000
+--- a/TensorRT/lib/.gitignore
++++ /dev/null
+@@ -1,2 +0,0 @@
+-*
+-!.gitignore
+diff --git a/TensorRT/plugin/bev_pool_v2/bevPoolPlugin.cpp b/TensorRT/plugins/bevPoolPlugin.cpp
+similarity index 100%
+rename from TensorRT/plugin/bev_pool_v2/bevPoolPlugin.cpp
+rename to TensorRT/plugins/bevPoolPlugin.cpp
+diff --git a/TensorRT/plugin/grid_sampler/gridSamplerPlugin.cpp b/TensorRT/plugins/gridSamplerPlugin.cpp
+similarity index 100%
+rename from TensorRT/plugin/grid_sampler/gridSamplerPlugin.cpp
+rename to TensorRT/plugins/gridSamplerPlugin.cpp
+diff --git a/TensorRT/plugin/inverse/inversePlugin.cpp b/TensorRT/plugins/inversePlugin.cpp
+similarity index 100%
+rename from TensorRT/plugin/inverse/inversePlugin.cpp
+rename to TensorRT/plugins/inversePlugin.cpp
+diff --git a/TensorRT/plugin/modulated_deformable_conv2d/modulatedDeformableConv2dPlugin.cpp b/TensorRT/plugins/modulatedDeformableConv2dPlugin.cpp
+similarity index 100%
+rename from TensorRT/plugin/modulated_deformable_conv2d/modulatedDeformableConv2dPlugin.cpp
+rename to TensorRT/plugins/modulatedDeformableConv2dPlugin.cpp
+diff --git a/TensorRT/plugin/multi_head_attn/multiHeadAttnPlugin.cpp b/TensorRT/plugins/multiHeadAttnPlugin.cpp
+similarity index 100%
+rename from TensorRT/plugin/multi_head_attn/multiHeadAttnPlugin.cpp
+rename to TensorRT/plugins/multiHeadAttnPlugin.cpp
+diff --git a/TensorRT/plugin/multi_scale_deformable_attn/multiScaleDeformableAttnPlugin.cpp b/TensorRT/plugins/multiScaleDeformableAttnPlugin.cpp
+similarity index 100%
+rename from TensorRT/plugin/multi_scale_deformable_attn/multiScaleDeformableAttnPlugin.cpp
+rename to TensorRT/plugins/multiScaleDeformableAttnPlugin.cpp
+diff --git a/TensorRT/plugin/rotate/rotatePlugin.cpp b/TensorRT/plugins/rotatePlugin.cpp
+similarity index 100%
+rename from TensorRT/plugin/rotate/rotatePlugin.cpp
+rename to TensorRT/plugins/rotatePlugin.cpp
+-- 
+2.25.1
+

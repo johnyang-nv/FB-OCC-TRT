@@ -44,7 +44,7 @@ TensorRT models demonstrate lower latency compared to the original PyTorch imple
 
    # Navigate to the target directory and apply the patch for FB-OCC
    cd deployment/trt_functions/
-   git apply FB-OCC_fn-patch-on-derryhub_fn.patch
+   git apply fb-occ_trt_fn-patch-on-derryhub_fn.patch
    ```
 
 2. **Generating the ONNX File**
@@ -66,11 +66,11 @@ TensorRT models demonstrate lower latency compared to the original PyTorch imple
 
 1. **Apply the Patch**
 
-   To prepare the TensorRT plugins for cross-compilation, apply the `FB-OCC_trt_plugin_aarch64.patch` to the plugin files:
+   To prepare the TensorRT plugins for cross-compilation, apply the `fb-occ_trt_plugin.patch` to the plugin files:
 
    ```bash
    cd /path/to/BEVFormer_tensorrt/
-   git apply /path/to/FB-BEV/deployment/plugins/FB-OCC_trt_plugin_aarch64.patch
+   git apply /path/to/FB-BEV/deployment/plugins/fb-occ_trt_plugin.patch
    ```   
 
 2. **Set Up the Environment**
@@ -93,15 +93,15 @@ TensorRT models demonstrate lower latency compared to the original PyTorch imple
    make TARGET=aarch64
    ```
 
-   Once the compilation is complete, the plugin file will be located at: `/drive/bin/aarch64/FB-OCC_trt_plugin_aarch64.so`.
+   Once the compilation is complete, the plugin file will be located at: `/drive/bin/aarch64/fb-occ_trt_plugin_aarch64.so`.
 
    Move the plugin file to your mounted directory for use in the next steps:
 
    ```bash
-   mv /drive/bin/aarch64/FB-OCC_trt_plugin_aarch64.so /BEVFormer_tensorrt/
+   mv /drive/bin/aarch64/fb-occ_trt_plugin_aarch64.so /BEVFormer_tensorrt/
    ```
 
-   The plugin file `FB-OCC_trt_plugin_aarch_aarch64.so` will be used in the next steps to create the TensorRT engine.
+   The plugin file `fb-occ_trt_plugin_aarch64.so` will be used in the next steps to create the TensorRT engine.
 
    
 ## Running TensorRT Engine Creation on the Target Platform
@@ -113,7 +113,7 @@ TensorRT engine creation must be performed on the target platform running NVIDIA
    Transfer the following files to the target platform:
 
    - ONNX file: `fbocc-r50-cbgs_depth_16f_16x4_20e_trt.onnx`
-   - Compiled plugin: `FB-OCC_trt_plugin_aarch64.so`
+   - Compiled plugin: `fb-occ_trt_plugin_aarch64.so`
    - Input data: Files saved in `/path/to/FB-BEV/data/trt_inputs/`
    - Shell script: `create_trt_engine.sh` saved in `/path/to/FB-BEV/deployment/`
    
@@ -127,19 +127,17 @@ TensorRT engine creation must be performed on the target platform running NVIDIA
    chmod +x create_trt_engine.sh
 
    # Example 1: Standard engine creation
-   ./create_trt_engine.sh --trt_plugin_path /path/to/FB-OCC_trt_plugin_aarch64.so
+   ./create_trt_engine.sh --trt_plugin_path /path/to/fb-occ_trt_plugin_aarch64.so
 
    # Example 2: Engine creation with FP16 precision
-   ./create_trt_engine.sh --trt_plugin_path /path/to/FB-OCC_trt_plugin_aarch64.so --fp16
+   ./create_trt_engine.sh --trt_plugin_path /path/to/fb-occ_trt_plugin_aarch64.so --fp16
 
    # Example 3: Custom engine path
-   ./create_trt_engine.sh --trt_plugin_path /path/to/FB-OCC_trt_plugin_aarch64.so --trt_engine_path /path/to/custom_engine_path
+   ./create_trt_engine.sh --trt_plugin_path /path/to/fb-occ_trt_plugin_aarch64.so --trt_engine_path /path/to/custom_engine_path
 
    # Example 4: Custom engine path and custom input data path
-   ./create_trt_engine.sh --trt_plugin_path /path/to/FB-OCC_trt_plugin_aarch64.so --trt_engine_path /path/to/custom_engine_path --data_dir /path/to/trt_inputs 
+   ./create_trt_engine.sh --trt_plugin_path /path/to/fb-occ_trt_plugin_aarch64.so --trt_engine_path /path/to/custom_engine_path --data_dir /path/to/trt_inputs 
    ```
-
-3. **Output Location**
 
    Upon successful execution, the TensorRT engine will be saved at the specified `<path_to_TensorRT_engine>` or, by default, as `fbocc-r50-cbgs_depth_16f_16x4_20e_trt.engine`.
 

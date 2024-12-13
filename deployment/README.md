@@ -93,15 +93,14 @@ TensorRT models demonstrate lower latency compared to the original PyTorch imple
    make TARGET=aarch64
    ```
 
-   Once the compilation is complete, the plugin file will be located at: `/drive/bin/aarch64/fb-occ_trt_plugin_aarch64.so`.
+   After the compilation is finished, the plugin file will be generated at the following location:: `/drive/bin/aarch64/fb-occ_trt_plugin_aarch64.so`.
 
-   Move the plugin file to your mounted directory for use in the next steps:
-
+   Move the plugin file to your mounted directory for use in the subsequent steps:
    ```bash
    mv /drive/bin/aarch64/fb-occ_trt_plugin_aarch64.so /BEVFormer_tensorrt/
    ```
 
-   The plugin file `fb-occ_trt_plugin_aarch64.so` will be used in the next steps to create the TensorRT engine.
+   The plugin file `fb-occ_trt_plugin_aarch64.so` will be used when creating the TensorRT engine.
 
    
 ## Running TensorRT Engine Creation on the Target Platform

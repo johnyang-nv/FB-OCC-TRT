@@ -141,7 +141,7 @@ Use [the procedures in this section](https://developer.nvidia.com/docs/drive/dri
    ./create_trt_engine.sh --trt_plugin_path /path/to/fb-occ_trt_plugin_aarch64.so --trt_engine_path /path/to/custom_engine_path --data_dir /path/to/trt_inputs 
    ```
 
-   Upon successful execution, the TensorRT engine will be saved at the specified `<path_to_TensorRT_engine>` or, by default, as `fbocc-r50-cbgs_depth_16f_16x4_20e_trt.engine`.
+   Upon successful execution, the TensorRT engine will be saved at the specified `<path_to_TensorRT_engine>`.
 
    #### **Notes:**
 
@@ -154,7 +154,7 @@ Use [the procedures in this section](https://developer.nvidia.com/docs/drive/dri
 
    1. **Preprocess Test Data on x86 Host** 
    
-      Prepare all test data on the x86 host by preprocessing it into .dat or .bin files. Define --save_dir as the path to save the preprocessed data.
+      Prepare all test data on the x86 host by preprocessing it into `.dat` or `.bin` files. Define `--save_dir` as the path to save the preprocessed data.
 
       ```bash
       cd /path/to/FB-BEV/
@@ -166,7 +166,7 @@ Use [the procedures in this section](https://developer.nvidia.com/docs/drive/dri
 
    2. **Perform TensorRT Inference on NVIDIA DRIVE Orin**
    
-      Copy or mount the preprocessed data and workspace onto the target platform (Orin) while flashing NVIDIA DRIVE OS Linux to the target system. Use [this guide](https://developer.nvidia.com/docs/drive/drive-os/6.0.10/public/drive-os-linux-installation/common/topics/installation/docker-ngc/setup-drive-os-linux-nvonline.html#ariaid-title5) to set up the system within a Docker container.
+      Copy or mount the preprocessed data and workspace onto the target platform while flashing NVIDIA DRIVE OS Linux to the target system. Use [this guide](https://developer.nvidia.com/docs/drive/drive-os/6.0.10/public/drive-os-linux-installation/common/topics/installation/docker-ngc/setup-drive-os-linux-nvonline.html#ariaid-title5) to set up the system within a Docker container.
 
       Run the shell script to perform TensorRT inference on all preprocessed data within the Docker container. The script saves the outputs back into the `--data_dir` directory for further evaluation.
 
@@ -177,8 +177,6 @@ Use [the procedures in this section](https://developer.nvidia.com/docs/drive/dri
          --trt_plugin_path /path/to/fb-occ_trt_plugin_aarch64.so \
          --trt_engine_path /path/to/fbocc-r50-cbgs_depth_16f_16x4_20e_trt_orin.engine
       ```
-
-      *Note: the outputs of TensorRT outputs will be saved in the directory `--data_dir` as default*
 
    3. **Transfer Outputs Back to x86 and Evaluate**
       

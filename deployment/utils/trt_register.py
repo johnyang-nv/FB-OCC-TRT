@@ -1,11 +1,3 @@
-from mmcv.cnn.bricks.registry import CONV_LAYERS
-from mmcv.utils import Registry
-from pytorch_quantization import nn as quant_nn
-from torch import nn
-import os
-import ctypes
-
-
 class FuncRegistry:
     def __init__(self, name, build_func=None, parent=None, scope=None):
         self._name = name
@@ -68,19 +60,3 @@ class FuncRegistry:
 
         return _register
 
-
-OS_PATH = "deployment/TensorRT/lib/libtensorrt_ops.so"
-OS_PATH = os.path.realpath(OS_PATH)
-ctypes.CDLL(OS_PATH)
-print(f"Loaded tensorrt plugins from {OS_PATH}")
-
-CONV_LAYERS.register_module("Conv1dQ", module=quant_nn.Conv1d)
-CONV_LAYERS.register_module("Conv2dQ", module=quant_nn.Conv2d)
-CONV_LAYERS.register_module("Conv3dQ", module=quant_nn.Conv3d)
-CONV_LAYERS.register_module("ConvQ", module=quant_nn.Conv2d)
-
-LINEAR_LAYERS = Registry("linear layer")
-LINEAR_LAYERS.register_module("Linear", module=nn.Linear)
-LINEAR_LAYERS.register_module("LinearQ", module=quant_nn.Linear)
-
-TRT_FUNCTIONS = FuncRegistry("tensorrt functions")

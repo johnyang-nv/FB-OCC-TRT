@@ -253,7 +253,7 @@ model = dict(
 dataset_type = 'NuScenesDataset'
 data_root = 'data/nuscenes/'
 file_client_args = dict(backend='disk')
-occupancy_path = 'data/nuscenes/gts'
+occupancy_path = '/mount/data/occupancy_cvpr2023/gts'
 
 
 train_pipeline = [

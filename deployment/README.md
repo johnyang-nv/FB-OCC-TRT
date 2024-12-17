@@ -42,13 +42,12 @@ This section provides the workflow to deploy  **FB-OCC** on the NVIDIA DRIVE pla
 
    The command will generate the ONNX model file at `data/onnx/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.onnx`.
 
-   During execution, the command processes real data samples and saves the input data in the directory `data/trt_inputs/`. 
-   These inputs are needed for the next steps, where they will be used to build the TensorRT engine.
+   This script also dumps input data which will be needed later to create the TensorRT engine.
 
 
 ## TensorRT Plugin Cross-Compilation for DRIVE Orin Linux on x86 host
 
-   FB-OCC uses operations that are not natively supported by TensorRT, including `GridSample3D`, `BevPoolv2`, and `Multi-Scale Deformable Attention`. To enable these operations during inference, they must be implemented as custom TensorRT plugins and compiled beforehand. These plugins extend TensorRT's functionality, ensuring the model performs as expected.
+   FB-OCC uses operations that are not natively supported by TensorRT, including `GridSample3D`, `BevPoolv2`, and `Multi-Scale Deformable Attention`. Those operations will be compiled as TensorRT plugins.
    
    ### Steps to Prepare and Build TensorRT Plugins
 
@@ -74,9 +73,11 @@ This section provides the workflow to deploy  **FB-OCC** on the NVIDIA DRIVE pla
 
 2. **Set Up the Environment**
 
-- Download a pre-configured NGC container to streamline the cross-compilation process. Detailed instructions for accessing NGC containers are available in the [NVIDIA DRIVE site](https://developer.nvidia.com/drive/downloads).    
-- Download the `nv-tensorrt-repo-ubuntu2004-cuda11.4-trt8.6.13.3-d6l-cross-ga-20240202_1-1_amd64.deb` debian package to your workspace `/path/to/BEVFormer_tensorrt/` from [Poduct Information Delivery](https://apps.nvidia.com/PID/ContentGroup/Detail/1948?FromLocation=CL) with your NVONLINE account. 
-- Launch the Drive OS Linux Docker container with `BEVFormer_tensorrt` mounted::
+   This model is to be deployed on NVIDIA DRIVE Orin with TensorRT 8.6.13.3. To get access to this version of TensorRT, please refer to details on the [NVIDIA DRIVE site](https://developer.nvidia.com/drive/downloads).    
+
+   First, download the `nv-tensorrt-repo-ubuntu2004-cuda11.4-trt8.6.13.3-d6l-cross-ga-20240202_1-1_amd64.deb` debian package to your workspace `/path/to/BEVFormer_tensorrt/` from [Poduct Information Delivery](https://apps.nvidia.com/PID/ContentGroup/Detail/1948?FromLocation=CL) with your NVONLINE account. 
+
+   Launch the Drive OS Linux Docker container with `BEVFormer_tensorrt` mounted::
    ```bash
    docker run --gpus all -it --network=host --rm \
      -v /your/path/to/BEVFormer_tensorrt/:/BEVFormer_tensorrt \
@@ -191,15 +192,3 @@ Use the [flashing procedures](https://developer.nvidia.com/drive/downloads) to p
       --data_dir /path/to/preprocessed_data
 
       ```
-
-   **Results**
-
-   The TensorRT engine produces results consistent with the PyTorch implementation on NVIDIA DRIVE Orin:
-   ```bash
-   FP32 Precision: 38.90
-   FP16 Precision: 38.86
-   ```
-
-   These results align closely with the reproduced PyTorch accuracy of `38.90` from the original implementation.
-   TensorRT models demonstrate reduced inference latency compared to the PyTorch implementation, with further improvements observed when using FP16 precision.
-

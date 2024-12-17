@@ -1,10 +1,10 @@
 #!/bin/bash
 
 # Parse arguments
-DATA_DIR="path/to/data"
+DATA_DIR="path/to/preprocessed_data"
 TRT_PATH="/usr/src/tensorrt"
-TRT_PLUGIN_PATH="fb-occ_trt_plugin_aarch64.so"
-TRT_ENGINE_PATH="model.engine"
+TRT_PLUGIN_PATH="/path/to/plugin.so"
+TRT_ENGINE_PATH="/path/to/tensorrt_engine.engine"
 
 while [[ "$#" -gt 0 ]]; do
     case $1 in

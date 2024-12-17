@@ -45,7 +45,7 @@ TensorRT models demonstrate lower latency compared to the original PyTorch imple
 
    # Navigate to the target directory and apply the patch for FB-OCC
    cd /path/to/FB-BEV/deployment/trt_functions/
-   git apply fb-occ_trt_fn-patch-on-derryhub_fn.patch
+   git apply fb-occ_trt_functions.patch
    ```
 
 2. **Generating the ONNX File**
@@ -180,11 +180,12 @@ Use [the procedures in this section](https://developer.nvidia.com/docs/drive/dri
 
    3. **Transfer Outputs Back to x86 and Evaluate**
       
-      Once inference is complete on the Orin platform, transfer the output files to the x86 host for evaluation. Postprocess the results and compute accuracy metrics to validate the performance of the TensorRT engine.
+      After completing inferences for the entire dataset on the Orin platform, transfer the output files back to the x86 host for evaluation. Postprocess the results and compute accuracy metrics to validate the performance of the TensorRT engine.
 
-      To evaluate the TensorRT engine's accuracy on the target platform, execute the following command:
+      To evaluate the TensorRT engine's accuracy, execute the following command:
 
       ```bash
+      cd /path/to/FB-BEV/
       python tools/test.py \
       occupancy_configs/fb_occ/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.py \
       ckpts/fbocc-r50-cbgs_depth_16f_16x4_20e.pth \

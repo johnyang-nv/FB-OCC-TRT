@@ -267,6 +267,8 @@ def main():
 
     if not distributed:
         if args.target_eval: 
+            if args.target_eval and args.data_dir == None:
+                raise ValueError("--data_dir must be specified when --target_eval is enabled")
             outputs = eval_trt_target(model, data_loader, args.data_dir)
         else:  
             model = MMDataParallel(model, device_ids=cfg.gpu_ids)

@@ -33,7 +33,7 @@ try:
     from mmdet.utils import compat_cfg
 except ImportError:
     from mmdet3d.utils import compat_cfg
-
+from deployment.eval_orin.validate_trt_outputs import eval_trt_target
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -123,7 +123,16 @@ def parse_args():
         default='none',
         help='job launcher')
     parser.add_argument('--local_rank', type=int, default=0)
-    parser.add_argument('--trt_engine', type=str, default=None, help='Path to TensorRT Engine')
+    parser.add_argument(
+        '--target_eval',
+        action='store_true',
+        default=False,
+        help='Flag to perform evaluation of the TensorRT engine on a specified target platform')
+    parser.add_argument(
+        '--data_dir',
+        type=str,
+        default=None,
+        help='Path to the directory where TensorRT outputs/data are saved (required if --target_eval is set)')
     args = parser.parse_args()
     if 'LOCAL_RANK' not in os.environ:
         os.environ['LOCAL_RANK'] = str(args.local_rank)
@@ -222,9 +231,6 @@ def main():
     # build the dataloader
 
     dataset = build_dataset(cfg.data.test)
-    
-    
-    
     data_loader = build_dataloader(dataset, **test_loader_cfg)
 
     # build the model and load checkpoint
@@ -260,8 +266,8 @@ def main():
         model.PALETTE = dataset.PALETTE
 
     if not distributed:
-        if args.trt_engine is not None:
-            outputs = single_gpu_test_trt(model, data_loader, args.trt_engine, cfg)
+        if args.target_eval: 
+            outputs = eval_trt_target(model, data_loader, args.data_dir)
         else:  
             model = MMDataParallel(model, device_ids=cfg.gpu_ids)
             outputs = single_gpu_test(model, data_loader, args.show, args.show_dir)

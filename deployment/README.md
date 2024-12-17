@@ -28,22 +28,23 @@ TensorRT models demonstrate lower latency compared to the original PyTorch imple
    # Clone the BEVFormer_tensorrt repository
    git clone https://github.com/DerryHub/BEVFormer_tensorrt
    # Checkout the specific commit for compatibility
+   cd BEVFormer_tensorrt
    git checkout 303d314
    ```
 
 ## ONNX Export  
-   First, refer to the [FB-BEV Repository Installation Guide](docs/install.md) for detailed installation instructions for the FB-OCC repository.
+   First, refer to the [FB-BEV Repository Installation Guide](docs/install.md) for detailed installation instructions for the FB-OCC repository. The guide also includes details about the pre-saved checkpoints located in `ckpts/`.
 
 1. **Adapting TensorRT Functions for FB-OCC**
    
-   The `trt_functions` from the [BEVFormer_tensorrt plugin](https://github.com/DerryHub/BEVFormer_tensorrt/tree/303d3140c14016047c07f9db73312af364f0dd7c/det2trt/models/functions) must be copied into the FB-OCC workspace and adjusted for compatibility. Follow these steps:
+   The `trt_functions` from the [BEVFormer_tensorrt plugin](https://github.com/DerryHub/BEVFormer_tensorrt/tree/303d3140c14016047c07f9db73312af364f0dd7c/det2trt/models/functions) must be copied into the FB-OCC workspace and adjusted for compatibility. Follow these csteps:
 
    ```bash
    # Copy BEVFormer_tensorrt functions to the FB-OCC workspace
    cp /path/to/BEVFormer_tensorrt/det2trt/models/functions/*.py /path/to/FB-BEV/deployment/trt_functions/
 
    # Navigate to the target directory and apply the patch for FB-OCC
-   cd deployment/trt_functions/
+   cd /path/to/FB-BEV/deployment/trt_functions/
    git apply fb-occ_trt_fn-patch-on-derryhub_fn.patch
    ```
 
@@ -105,11 +106,13 @@ TensorRT models demonstrate lower latency compared to the original PyTorch imple
    
 ## Running TensorRT Engine Creation on the Target Platform
 
-TensorRT engine creation must be performed on the target platform running NVIDIA DRIVE OS, as the cross-compiled TensorRT plugin is not recognized on x86 systems but works on ARM-based platforms.
+Before proceeding with TensorRT engine creation, ensure that the target platform (e.g., NVIDIA DRIVE Orin) is properly set up with NVIDIA DRIVE OS. 
+Use [the procedures in this section](https://developer.nvidia.com/docs/drive/drive-os/6.0.10/public/drive-os-linux-installation/common/topics/installation/docker-ngc/setup-drive-os-linux-nvonline.html#ariaid-title5) to flash NVIDIA DRIVE OS Linux to the target system from the Docker container. Following these steps will prepare the target system with the necessary operating system, drivers, and tools.
+
 
 1. **Prepare and Transfer Required Files**
 
-   Transfer the following files to the target platform:
+   Prepare the following files to the target platform:
 
    - ONNX file: `fbocc-r50-cbgs_depth_16f_16x4_20e_trt.onnx`
    - Compiled plugin: `fb-occ_trt_plugin_aarch64.so`
@@ -145,24 +148,61 @@ TensorRT engine creation must be performed on the target platform running NVIDIA
    - **Real Data Requirement:** Ensure real data samples are available and properly configured (e.g., .dat files) to avoid errors during engine creation. The model uses dynamic input sizes for multiple inputs.
    - **Dataset Configuration:** Confirm that the dataset paths for the input files are correctly set up to ensure smooth engine creation.
 
-## Validation / Inference 
+## TensorRT Engine Evaluation on the Target Platform
 
-   Coming back to 
-   To validate the accuracy of the generated TensorRT engine, use the following command:
+   The process involves preparing data on an x86 host, performing inference on the target platform (Orin), and completing evaluation back on the x86 host. Follow the steps below to validate the TensorRT engine and evaluate its performance:
 
-   ```bash
-   python tools/test.py occupancy_configs/fb_occ/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.py ckpts/fbocc-r50-cbgs_depth_16f_16x4_20e.pth --trt_engine <path_to_TensorRT_engine>
-   ```
+   1. **Preprocess Test Data on x86 Host** 
    
-   Replace `<path_to_TensorRT_engine>` with the appropriate path to your TensorRT engine file. For example, `data/onnx/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.engine`. 
+      Prepare all test data on the x86 host by preprocessing it into .dat or .bin files. Define --save_dir as the path to save the preprocessed data.
+
+      ```bash
+      cd /path/to/FB-BEV/
+      python deployment/eval_orin/preprocess_samples.py \
+         occupancy_configs/fb_occ/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.py \
+         --save_dir /path/to/preprocessed_data
+
+      ```
+
+   2. **Perform TensorRT Inference on NVIDIA DRIVE Orin**
+   
+      Copy or mount the preprocessed data and workspace onto the target platform (Orin) while flashing NVIDIA DRIVE OS Linux to the target system. Use [this guide](https://developer.nvidia.com/docs/drive/drive-os/6.0.10/public/drive-os-linux-installation/common/topics/installation/docker-ngc/setup-drive-os-linux-nvonline.html#ariaid-title5) to set up the system within a Docker container.
+
+      Run the shell script to perform TensorRT inference on all preprocessed data within the Docker container. The script saves the outputs back into the `--data_dir` directory for further evaluation.
+
+      ```bash
+      cd /path/to/FB-BEV/deployment/
+      ./eval_orin/run_data_trt.sh \
+         --data_dir /path/to/preprocessed_data \
+         --trt_plugin_path /path/to/fb-occ_trt_plugin_aarch64.so \
+         --trt_engine_path /path/to/fbocc-r50-cbgs_depth_16f_16x4_20e_trt_orin.engine
+      ```
+
+      *Note: the outputs of TensorRT outputs will be saved in the directory `--data_dir` as default*
+
+   3. **Transfer Outputs Back to x86 and Evaluate**
+      
+      Once inference is complete on the Orin platform, transfer the output files to the x86 host for evaluation. Postprocess the results and compute accuracy metrics to validate the performance of the TensorRT engine.
+
+      To evaluate the TensorRT engine's accuracy on the target platform, execute the following command:
+
+      ```bash
+      python tools/test.py \
+      occupancy_configs/fb_occ/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.py \
+      ckpts/fbocc-r50-cbgs_depth_16f_16x4_20e.pth \
+      --target_eval \
+      --data_dir /path/to/preprocessed_data
+
+      ```
 
    **Results**
 
-   The TensorRT engine produces results consistent with the PyTorch implementation:
+   The TensorRT engine produces results consistent with the PyTorch implementation on NVIDIA DRIVE Orin:
    ```bash
    FP32 Precision: 38.90
    FP16 Precision: 38.86
    ```
+
    These results align closely with the reproduced PyTorch accuracy of `38.90` from the original implementation.
    TensorRT models demonstrate reduced inference latency compared to the PyTorch implementation, with further improvements observed when using FP16 precision.
 

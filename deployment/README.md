@@ -17,11 +17,12 @@ This section provides the workflow to deploy  **FB-OCC** on the NVIDIA DRIVE pla
 
 
 ## ONNX Export  
-   First, refer to the [FB-BEV Repository Installation Guide](docs/install.md) for detailed installation instructions for the FB-OCC repository. The guide also includes details about the pre-saved checkpoints located in `ckpts/`.
+
+   Before exporting, we assume [the Installation Guide](docs/install.md) was followed and FB-OCC environment was properly set.
 
 1. **Adapting TensorRT Functions for FB-OCC**
    
-   The `trt_functions` from the [BEVFormer_tensorrt plugin](https://github.com/DerryHub/BEVFormer_tensorrt/tree/303d3140c14016047c07f9db73312af364f0dd7c/det2trt/models/functions) must be copied into the FB-OCC workspace and adjusted for compatibility. Follow these steps:
+   The `trt_functions` from the [BEVFormer_tensorrt plugin](https://github.com/DerryHub/BEVFormer_tensorrt/tree/303d3140c14016047c07f9db73312af364f0dd7c/det2trt/models/functions) shall be copied into your workspace and adjusted for FB-OCC by following those steps:
 
    ```bash
    # Copy BEVFormer_tensorrt functions to the FB-OCC workspace
@@ -101,7 +102,7 @@ This section provides the workflow to deploy  **FB-OCC** on the NVIDIA DRIVE pla
    The plugin file `fb-occ_trt_plugin_aarch64.so` will be used when creating the TensorRT engine.
 
    
-## Running TensorRT Engine Creation on the Target Platform
+## Running TensorRT Engine Creation on DRIVE Orin
 
 To create the TensorRT engine, confirm that the target platform (e.g., NVIDIA DRIVE Orin) is set up with NVIDIA DRIVE OS. 
 Use the [flashing procedures](https://developer.nvidia.com/drive/downloads) to prepare the target system.
@@ -145,7 +146,7 @@ Use the [flashing procedures](https://developer.nvidia.com/drive/downloads) to p
    - **Real Data Requirement:** Ensure real data samples are available and properly configured (e.g., .dat files) to avoid errors during engine creation. The model uses dynamic input sizes for multiple inputs.
    - **Dataset Configuration:** Confirm that the dataset paths for the input files are correctly set up to ensure smooth engine creation.
 
-## TensorRT Engine Evaluation on the Target Platform
+## TensorRT Engine Evaluation on DRIVE Orin
 
    The process involves preparing data on an x86 host, performing inference on the target platform (Orin), and completing evaluation back on the x86 host. Follow the steps below to validate the TensorRT engine and evaluate its performance:
 
@@ -161,11 +162,11 @@ Use the [flashing procedures](https://developer.nvidia.com/drive/downloads) to p
 
       ```
 
-   2. **Perform TensorRT Inference on NVIDIA DRIVE Orin**
+   2. **Perform TensorRT Inference on DRIVE Orin**
    
-      Copy or mount the preprocessed data and workspace onto the target platform while flashing for DRIVE Orin Linux on x86 host Linux to the target system. Use [this guide](https://developer.nvidia.com/docs/drive/drive-os/6.0.10/public/drive-os-linux-installation/common/topics/installation/docker-ngc/setup-drive-os-linux-nvonline.html#ariaid-title5) to set up the system within a Docker container.
+      Mount the preprocessed data and workspace while flashing to DRIVE Orin. 
 
-      Run the shell script to perform TensorRT inference on all preprocessed data within the Docker container. The script saves the outputs back into the `--data_dir` directory for further evaluation.
+      Then, run the shell script to perform TensorRT inference on all preprocessed data within the Docker container. The script saves the outputs back into the `--data_dir` directory for further evaluation.
 
       ```bash
       cd /path/to/FB-BEV/deployment/

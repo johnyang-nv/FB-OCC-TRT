@@ -1,11 +1,11 @@
 # FB-OCC TensorRT Deployment on NVIDIA Drive Platform
 
 
-This section provides the workflow to deploy  **FB-OCC** on the NVIDIA DRIVE platform using **TensorRT**, supporting both `FP32` and `FP16` to inference on NVIDIA DRIVE Orin. It includes all necessary components to streamline the process from model export to execution on TensorRT for NVIDIA DRIVE deployments.
+This section provides the workflow to deploy  **FB-OCC** on the NVIDIA DRIVE platform using **TensorRT** from model export to inference using TensorRT. It includes all necessary components to streamline the process from model export to execution on TensorRT for NVIDIA DRIVE deployments.
 
 ## Occupancy Prediction on NuScenes dataset
 
-   All models utilized the [FB-OCC configuration](occupancy_configs/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.py), a modified version of the [original configuration](occupancy_configs/fbocc-r50-cbgs_depth_16f_16x4_20e.py) designed for TensorRT compatibility.
+   All models utilized the [FB-OCC configuration](../occupancy_configs/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.py), a modified version of the [original configuration](../occupancy_configs/fbocc-r50-cbgs_depth_16f_16x4_20e.py) designed for TensorRT compatibility.
    - Input resolution: 6 cameras with resolution 256 × 704, forming an input tensor of size 6 × 3 × 256 × 704.
    - Backbone: ResNet-50, consistent with the original configuration.
    - Latency benchmarks on **NVIDIA DRIVE Orin** are measured with NuScenes validation samples.
@@ -22,12 +22,12 @@ This section provides the workflow to deploy  **FB-OCC** on the NVIDIA DRIVE pla
 
 ## Generate ONNX file and save input data
 
-   Before exporting, we assume [the Installation Guide](docs/install.md) was followed and FB-OCC environment was properly set up.
+   Before exporting, we assume [the Installation Guide](../docs/install.md) was followed and FB-OCC environment was properly set up.
    
 
 1. **Add functions for exporting ONNX file with custom ops**
    
-   FB-OCC uses operations that are not natively supported by TensorRT, including `GridSample3D`, `BevPoolv2`, and `Multi-Scale Deformable Attention`. Therefore, the ONNX file must first be exported with the custom operations, allowing TensorRT to process them as plugins later. 
+   FB-OCC uses operations that are not natively supported by TensorRT, including `GridSample3D`, `BevPoolv2`, and `Multi-Scale Deformable Attention`. Therefore, the ONNX file must first be exported with the custom operations, allowing TensorRT to process them as plugins later. A third party [repository](https://github.com/DerryHub/BEVFormer_tensorrt) provides similar functionalities and can be leveraged for FB-OCC:
 
    Clone the repository and check out the specific commit for compatibility:
    ```bash
@@ -38,7 +38,7 @@ This section provides the workflow to deploy  **FB-OCC** on the NVIDIA DRIVE pla
    git checkout 303d314
    ```
 
-   The functions from the [BEVFormer_tensorrt plugin](https://github.com/DerryHub/BEVFormer_tensorrt/tree/303d3140c14016047c07f9db73312af364f0dd7c/det2trt/models/functions) shall be copied into your workspace and adjusted for FB-OCC by following those steps:
+   Those [scripts](https://github.com/DerryHub/BEVFormer_tensorrt/tree/303d3140c14016047c07f9db73312af364f0dd7c/det2trt/models/functions) shall be copied into your workspace and adjusted for FB-OCC by following those steps:
 
    ```bash
    # Copy BEVFormer_tensorrt functions to the FB-OCC workspace
@@ -63,12 +63,13 @@ This section provides the workflow to deploy  **FB-OCC** on the NVIDIA DRIVE pla
 
 ## TensorRT Plugin Cross-Compilation for DRIVE Orin on x86 host
 
-   This model is to be deployed on NVIDIA DRIVE Orin with TensorRT 8.6.13.3, accessible via details on the [NVIDIA DRIVE site](https://developer.nvidia.com/drive/downloads).
+   This model is to be deployed on NVIDIA DRIVE Orin with TensorRT 8.6.13.3, which can be downloaded from [NVIDIA DRIVE site](https://developer.nvidia.com/drive/downloads). 
+   Please refer to [DRIVE AGX SDK Developer Program](https://developer.nvidia.com/drive/agx-sdk-program) for access to the SDKs.
    
 
-1. **Clone and Modify BEVFormer_tensorrt**
+1. **Modify plugin implementation**
 
-   To compile the plugins for the required custom operations, use the previously cloned BEVFormer_tensorrt repository. Apply the provided patch to adapt the plugins for FB-OCC:
+   To compile the plugins for the required custom operations, apply the provided patch to adapt the plugins for FB-OCC:
 
    ```bash
    # Navigate to the BEVFormer_tensorrt directory
@@ -85,29 +86,23 @@ This section provides the workflow to deploy  **FB-OCC** on the NVIDIA DRIVE pla
 
    We recommend using the NVIDIA DRIVE docker image with a pre-configured environment for cross-compilation.
 
-   Launch the docker with `BEVFormer_tensorrt` mounted:
+   Launch the docker with the following command:
    ```bash
    docker run --gpus all -it --network=host --rm \
      -v /your/path/to/BEVFormer_tensorrt/:/BEVFormer_tensorrt \
      nvcr.io/drive/driveos-sdk/drive-agx-orin-linux-aarch64-sdk-build-x86:6.0.10.0-0009
    ```
-   Join the [DRIVE AGX SDK Developer Program](https://developer.nvidia.com/drive/agx-sdk-program) for access to the docker image.
 
-3. **Install Required Components**
+3. **Cross-compile plugins**
 
    Inside the Docker container, execute the following commands to install the necessary components and build the plugins:   
    ```bash
-   apt install tensorrt-cross-aarch64
    cd /BEVFormer_tensorrt/TensorRT/
    make TARGET=aarch64
    ```
 
-   After the compilation is finished, move the plugin file to your mounted directory for use in the subsequent steps:
-   ```bash
-   mv /drive/bin/aarch64/fb-occ_trt_plugin_aarch64.so /BEVFormer_tensorrt/
-   ```
-
-   The plugin file `fb-occ_trt_plugin_aarch64.so` will be used when creating the TensorRT engine.
+   After compilation, the plugin file will be generated at `/drive/bin/aarch64/fb-occ_trt_plugin_aarch64.so`. 
+   This file will be used in subsequent steps to create the TensorRT engine.
 
    
 ## Build TensorRT Engine on DRIVE Orin

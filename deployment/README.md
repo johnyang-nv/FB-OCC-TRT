@@ -5,7 +5,7 @@ This section provides the workflow to deploy  **FB-OCC** on the NVIDIA DRIVE pla
 
 ## Occupancy Prediction on NuScenes dataset
 
-   All models utilized the [FB-OCC configuration](../occupancy_configs/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.py), a modified version of the [original configuration](../occupancy_configs/fbocc-r50-cbgs_depth_16f_16x4_20e.py) designed for TensorRT compatibility.
+   All models utilized the [FB-OCC configuration](../occupancy_configs/fb_occ/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.py), a modified version of the [original configuration](../occupancy_configs/fb_occ/fbocc-r50-cbgs_depth_16f_16x4_20e.py) designed for TensorRT compatibility.
    - Input resolution: 6 cameras with resolution 256 × 704, forming an input tensor of size 6 × 3 × 256 × 704.
    - Backbone: ResNet-50, consistent with the original configuration.
    - Latency benchmarks on **NVIDIA DRIVE Orin** are measured with NuScenes validation samples.

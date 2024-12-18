@@ -4,27 +4,27 @@ Date: Wed, 11 Dec 2024 11:12:07 -0800
 Subject: [PATCH] FB-OCC trt_fn patch on derryhub_fn
 
 ---
- deployment/trt_functions/__init__.py          |  17 +-
- deployment/trt_functions/bev_pool_v2.py       |  41 +--
- deployment/trt_functions/grid_sampler.py      |   3 +-
+ deployment/custom_op_functions/__init__.py          |  17 +-
+ deployment/custom_op_functions/bev_pool_v2.py       |  41 +--
+ deployment/custom_op_functions/grid_sampler.py      |   3 +-
  .../modulated_deformable_conv2d.py            |   1 -
  .../multi_scale_deformable_attn.py            | 249 ++++++------------
  5 files changed, 117 insertions(+), 194 deletions(-)
 
-diff --git a/deployment/trt_functions/__init__.py b/deployment/trt_functions/__init__.py
+diff --git a/deployment/custom_op_functions/__init__.py b/deployment/custom_op_functions/__init__.py
 index 479b6b6..5869e62 100644
---- a/deployment/trt_functions/__init__.py
-+++ b/deployment/trt_functions/__init__.py
+--- a/deployment/custom_op_functions/__init__.py
++++ b/deployment/custom_op_functions/__init__.py
 @@ -1,17 +1,17 @@
 -from .grid_sampler import grid_sampler, grid_sampler2
 -from .multi_scale_deformable_attn import (
-+from deployment.trt_functions.grid_sampler import grid_sampler, grid_sampler2
-+from deployment.trt_functions.multi_scale_deformable_attn import (
++from deployment.custom_op_functions.grid_sampler import grid_sampler, grid_sampler2
++from deployment.custom_op_functions.multi_scale_deformable_attn import (
      multi_scale_deformable_attn,
      multi_scale_deformable_attn2,
  )
 -from .modulated_deformable_conv2d import (
-+from deployment.trt_functions.modulated_deformable_conv2d import (
++from deployment.custom_op_functions.modulated_deformable_conv2d import (
      modulated_deformable_conv2d,
      modulated_deformable_conv2d2,
  )
@@ -33,10 +33,10 @@ index 479b6b6..5869e62 100644
 -from .bev_pool_v2 import bev_pool_v2, bev_pool_v2_2
 -from .multi_head_attn import qkv, qkv2
 -from ..utils.register import TRT_FUNCTIONS
-+from deployment.trt_functions.rotate import rotate, rotate2
-+from deployment.trt_functions.inverse import inverse
-+from deployment.trt_functions.bev_pool_v2 import bev_pool_v2, bev_pool_v2_2, bev_pool_v2_gpu
-+from deployment.trt_functions.multi_head_attn import qkv, qkv2
++from deployment.custom_op_functions.rotate import rotate, rotate2
++from deployment.custom_op_functions.inverse import inverse
++from deployment.custom_op_functions.bev_pool_v2 import bev_pool_v2, bev_pool_v2_2, bev_pool_v2_gpu
++from deployment.custom_op_functions.multi_head_attn import qkv, qkv2
 +from deployment.utils.trt_register import TRT_FUNCTIONS
  
  
@@ -46,10 +46,10 @@ index 479b6b6..5869e62 100644
  TRT_FUNCTIONS.register_module(module=qkv)
  TRT_FUNCTIONS.register_module(module=qkv2)
 +
-diff --git a/deployment/trt_functions/bev_pool_v2.py b/deployment/trt_functions/bev_pool_v2.py
+diff --git a/deployment/custom_op_functions/bev_pool_v2.py b/deployment/custom_op_functions/bev_pool_v2.py
 index 1a95bcc..de5be61 100644
---- a/deployment/trt_functions/bev_pool_v2.py
-+++ b/deployment/trt_functions/bev_pool_v2.py
+--- a/deployment/custom_op_functions/bev_pool_v2.py
++++ b/deployment/custom_op_functions/bev_pool_v2.py
 @@ -1,6 +1,14 @@
 +import torch
  from torch.autograd import Function
@@ -109,7 +109,6 @@ index 1a95bcc..de5be61 100644
          )
 -        bev_feat = bev_feat.squeeze(2)
 -        bev_feat = bev_feat.permute(0, 2, 3, 1)
-+        print("TRT output shape should be", bev_feat.shape)
          return bev_feat
  
      @staticmethod
@@ -163,10 +162,10 @@ index 1a95bcc..de5be61 100644
 -        out_width,
 +        out_width
      )
-diff --git a/deployment/trt_functions/grid_sampler.py b/deployment/trt_functions/grid_sampler.py
+diff --git a/deployment/custom_op_functions/grid_sampler.py b/deployment/custom_op_functions/grid_sampler.py
 index 0c7e63f..1b40e1e 100644
---- a/deployment/trt_functions/grid_sampler.py
-+++ b/deployment/trt_functions/grid_sampler.py
+--- a/deployment/custom_op_functions/grid_sampler.py
++++ b/deployment/custom_op_functions/grid_sampler.py
 @@ -3,7 +3,6 @@ from torch import Tensor
  from torch.types import _int, _bool
  from torch.autograd import Function
@@ -184,10 +183,10 @@ index 0c7e63f..1b40e1e 100644
          grid_ = grid / 10
          output = torch.ops.aten.grid_sampler(
              input, grid_, interpolation_mode, padding_mode, align_corners
-diff --git a/deployment/trt_functions/modulated_deformable_conv2d.py b/deployment/trt_functions/modulated_deformable_conv2d.py
+diff --git a/deployment/custom_op_functions/modulated_deformable_conv2d.py b/deployment/custom_op_functions/modulated_deformable_conv2d.py
 index 76cf535..762c480 100644
---- a/deployment/trt_functions/modulated_deformable_conv2d.py
-+++ b/deployment/trt_functions/modulated_deformable_conv2d.py
+--- a/deployment/custom_op_functions/modulated_deformable_conv2d.py
++++ b/deployment/custom_op_functions/modulated_deformable_conv2d.py
 @@ -9,7 +9,6 @@ ext_module = ext_loader.load_ext(
      "_ext", ["modulated_deform_conv_forward", "modulated_deform_conv_backward"]
  )
@@ -196,10 +195,10 @@ index 76cf535..762c480 100644
  class _ModulatedDeformableConv2dFunction(Function):
      @staticmethod
      def symbolic(
-diff --git a/deployment/trt_functions/multi_scale_deformable_attn.py b/deployment/trt_functions/multi_scale_deformable_attn.py
+diff --git a/deployment/custom_op_functions/multi_scale_deformable_attn.py b/deployment/custom_op_functions/multi_scale_deformable_attn.py
 index 36db587..616c69f 100644
---- a/deployment/trt_functions/multi_scale_deformable_attn.py
-+++ b/deployment/trt_functions/multi_scale_deformable_attn.py
+--- a/deployment/custom_op_functions/multi_scale_deformable_attn.py
++++ b/deployment/custom_op_functions/multi_scale_deformable_attn.py
 @@ -1,4 +1,7 @@
 +
 +

@@ -59,4 +59,6 @@ class FuncRegistry:
             return cls
 
         return _register
+    
+TRT_FUNCTIONS = FuncRegistry("tensorrt functions")
 

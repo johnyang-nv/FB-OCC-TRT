@@ -29,15 +29,15 @@ This section provides the workflow to deploy  **FB-OCC** on the NVIDIA DRIVE pla
    
    FB-OCC uses operations that are not natively supported by TensorRT, including GridSample3D, BevPoolv2, and Multi-Scale Deformable Attention. Therefore, we will first need to export ONNX file with those custom ops so that those ops can be later handled by TensorRT as plugins. 
 
-   The `trt_functions` from the [BEVFormer_tensorrt plugin](https://github.com/DerryHub/BEVFormer_tensorrt/tree/303d3140c14016047c07f9db73312af364f0dd7c/det2trt/models/functions) shall be copied into your workspace and adjusted for FB-OCC by following those steps:
+   The functions from the [BEVFormer_tensorrt plugin](https://github.com/DerryHub/BEVFormer_tensorrt/tree/303d3140c14016047c07f9db73312af364f0dd7c/det2trt/models/functions) shall be copied into your workspace and adjusted for FB-OCC by following those steps:
 
    ```bash
    # Copy BEVFormer_tensorrt functions to the FB-OCC workspace
-   cp /path/to/BEVFormer_tensorrt/det2trt/models/functions/*.py /path/to/FB-BEV/deployment/trt_functions/
+   cp /path/to/BEVFormer_tensorrt/det2trt/models/functions/*.py /path/to/FB-BEV/deployment/custom_op_functions/
 
    # Navigate to the target directory and apply the patch for FB-OCC
-   cd /path/to/FB-BEV/deployment/trt_functions/
-   git apply fb-occ_trt_functions.patch
+   cd /path/to/FB-BEV/deployment/custom_op_functions/
+   git apply fb-occ_custom_op_functions.patch
    ```
 
 2. **Generating the ONNX File**

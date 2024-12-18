@@ -2,26 +2,33 @@
 
 
 This section provides the workflow to deploy  **FB-OCC** on the NVIDIA DRIVE platform using **TensorRT**, supporting both `FP32` and `FP16` to inference on NVIDIA DRIVE Orin. It includes all necessary components to streamline the process from model export to execution on TensorRT for NVIDIA DRIVE deployments.
-<div align="center">
 
-|                      | Precision     | mIoU              |  Latency (ms) on NVIDIA DRIVE Orin   |
-|----------------------|---------------|-------------------|--------------------------------------|
-| [FB-OCC-PyTorch](https://github.com/NVlabs/FB-BEV/tree/main?tab=readme-ov-file#model-zoo)       | FP32          | 39.10             | -                                    |
-| FB-OCC-TensorRT      | FP32          | 38.90             | 197.89                               |
-| FB-OCC-TensorRT      | FP16          | 38.86             | 138.62                               |
+## Occupancy Prediction on nuScenes dataset
+
+   All models utilized the [FB-OCC configuration](occupancy_configs/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.py), a modified version of the [original configuration](occupancy_configs/fbocc-r50-cbgs_depth_16f_16x4_20e.py) designed for TensorRT compatibility.
+   - Input resolution: 6 cameras with resolution 256 × 704, forming an input tensor of size 6 × 3 × 256 × 704.
+   - Backbone: ResNet-50, consistent with the original configuration.
+   - Latency benchmarks on **NVIDIA DRIVE Orin** are measured on the nuScenes validation samples.
 
 
-</div>
 
+      |    Model  |    Framework                  | Precision     | mIoU              |  Latency (ms)   |
+      |-----------|-----------|---------------|-------------------|--------------------------------------|
+      | FB-OCC|[PyTorch](https://github.com/NVlabs/FB-BEV/tree/main?tab=readme-ov-file#model-zoo)       | FP32          | 39.10             | -                                    |
+      | FB-OCC|TensorRT      | FP32          | 38.90             | 197.89                               |
+      | FB-OCC|TensorRT      | FP16          | 38.86             | 138.62                               |
 
 
 
 ## ONNX Export  
 
-   Before exporting, we assume [the Installation Guide](docs/install.md) was followed and FB-OCC environment was properly set.
-
-1. **Adapting TensorRT Functions for FB-OCC**
+   Before exporting, we assume [the Installation Guide](docs/install.md) was followed and FB-OCC environment was properly set up.
    
+
+1. **Add functions for exporting ONNX file with custom ops**
+   
+   FB-OCC uses operations that are not natively supported by TensorRT, including GridSample3D, BevPoolv2, and Multi-Scale Deformable Attention. Therefore, we will first need to export ONNX file with those custom ops so that those ops can be later handled by TensorRT as plugins. 
+
    The `trt_functions` from the [BEVFormer_tensorrt plugin](https://github.com/DerryHub/BEVFormer_tensorrt/tree/303d3140c14016047c07f9db73312af364f0dd7c/det2trt/models/functions) shall be copied into your workspace and adjusted for FB-OCC by following those steps:
 
    ```bash
@@ -45,9 +52,12 @@ This section provides the workflow to deploy  **FB-OCC** on the NVIDIA DRIVE pla
    This script also dumps input data which will be needed later to create the TensorRT engine.
 
 
-## TensorRT Plugin Cross-Compilation for DRIVE Orin Linux on x86 host
+## TensorRT Plugin Cross-Compilation for DRIVE Orin on x86 host
+
+   This model is to be deployed on NVIDIA DRIVE Orin with TensorRT 8.6.13.3, accessible via details on the [NVIDIA DRIVE site](https://developer.nvidia.com/drive/downloads).
 
    FB-OCC uses operations that are not natively supported by TensorRT, including `GridSample3D`, `BevPoolv2`, and `Multi-Scale Deformable Attention`. Those operations will be compiled as TensorRT plugins.
+   
    
    ### Steps to Cross-Compile TensorRT Plugins
 
@@ -107,8 +117,6 @@ Use the [flashing procedures](https://developer.nvidia.com/drive/downloads) to p
 
 
 1. **Prepare and Transfer Required Files**
-
-   Prepare the following files to the target platform:
 
 - ONNX file: `fbocc-r50-cbgs_depth_16f_16x4_20e_trt.onnx`
 - Compiled plugin: `fb-occ_trt_plugin_aarch64.so`

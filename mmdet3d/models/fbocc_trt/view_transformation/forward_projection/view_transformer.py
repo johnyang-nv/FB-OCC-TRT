@@ -8,7 +8,7 @@ from torch.cuda.amp.autocast_mode import autocast
 from torch.utils.checkpoint import checkpoint
 
 
-from deployment.trt_functions.bev_pool_v2 import bev_pool_v2_gpu as bev_pool_v2
+from deployment.custom_op_functions.bev_pool_v2 import bev_pool_v2_gpu as bev_pool_v2
 
 from mmdet3d.models.fbbev.view_transformation.forward_projection import LSSViewTransformerFunction3D
 from mmdet.models.backbones.resnet import BasicBlock

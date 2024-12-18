@@ -68,7 +68,7 @@ This section provides the workflow to deploy  **FB-OCC** on the NVIDIA DRIVE pla
       ```bash
       git apply /path/to/FB-BEV/deployment/plugins/fb-occ_trt_plugin.patch
       ```
-      The patch adjusts key plugin files to incorporate FB-OCC-specific operations.
+      The patch updates key plugin files to enable compilation and add FB-OCC-specific operations.
    
 
 2. **Set Up the Environment**
@@ -146,7 +146,7 @@ Use the [flashing procedures](https://developer.nvidia.com/drive/downloads) to p
 
 ## TensorRT Engine Evaluation on DRIVE Orin
 
-   The process involves preparing data on an x86 host, performing inference on the target platform (Orin), and completing evaluation back on the x86 host. Follow the steps below to validate the TensorRT engine and evaluate its performance:
+   The process involves preparing data on an x86 host, running inference on the Orin platform, and returning to the x86 host to evaluate the results and validate the TensorRT engine.
 
    1. **Preprocess Test Data on x86 Host** 
    
@@ -163,7 +163,7 @@ Use the [flashing procedures](https://developer.nvidia.com/drive/downloads) to p
    
       Mount the preprocessed data and workspace while flashing to DRIVE Orin. 
 
-      Then, run the shell script to perform TensorRT inference on all preprocessed data within the Docker container. The script saves the outputs back into the `--data_dir` directory for further evaluation.
+      Run the shell script in the Docker container to perform TensorRT inference, saving outputs to the `--data_dir` for evaluation.
 
       ```bash
       cd /path/to/FB-BEV/
@@ -173,9 +173,10 @@ Use the [flashing procedures](https://developer.nvidia.com/drive/downloads) to p
          --trt_engine_path /path/to/fbocc-r50-cbgs_depth_16f_16x4_20e_trt_orin.engine
       ```
 
-   3. **Transfer Outputs Back to x86 and Evaluate**
+   3. **Transfer Outputs to x86 and Evaluate**
       
-      After completing inferences for the entire dataset on the Orin platform, transfer the output files back to the x86 host for evaluation. Postprocess the results and compute accuracy metrics to validate the performance of the TensorRT engine.
+      
+      Transfer the inference outputs from Orin to the x86 host, postprocess them, and compute accuracy metrics to validate the TensorRT engine.
 
       To evaluate the TensorRT engine's accuracy, execute the following command:
 

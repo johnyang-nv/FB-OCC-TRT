@@ -1,15 +1,11 @@
-From 5f8f3f4cdf773d1e4c72a2c9fd91da4ffab91f18 Mon Sep 17 00:00:00 2001
+From 433180ab8e2f8003a7f8df7c7a6033abfae8ef12 Mon Sep 17 00:00:00 2001
 From: "John Yang (SW-TEGRA)" <johnyang@nvidia.com>
-Date: Tue, 17 Dec 2024 15:39:52 -0800
+Date: Wed, 18 Dec 2024 13:44:48 -0800
 Subject: [PATCH] fb-occ_trt_plugin
 
 ---
- TensorRT/CMakeLists.txt                       |   37 -
  TensorRT/Makefile                             |   25 +
- TensorRT/Makefile.config                      |  207 +++
- TensorRT/README.md                            |  277 ----
- TensorRT/build/.gitignore                     |    2 -
- TensorRT/cudaComputeVersion.cu                |    9 -
+ TensorRT/Makefile.config                      |  208 +++
  .../bev_pool_v2 => include}/bevPoolKernel.h   |    5 +-
  .../bev_pool_v2 => include}/bevPoolPlugin.h   |    2 +-
  .../{common => include}/checkMacrosPlugin.cpp |    0
@@ -32,32 +28,14 @@ Subject: [PATCH] fb-occ_trt_plugin
  .../{plugin/rotate => include}/rotateKernel.h |    0
  .../{plugin/rotate => include}/rotatePlugin.h |    0
  TensorRT/{common => include}/serialize.h      |    0
- TensorRT/install.sh                           |    4 -
- .../bev_pool_v2 => kernels}/bevPoolKernel.cu  |    0
- .../gridSamplerKernel.cu                      |    0
- .../inverse => kernels}/inverseKernel.cu      |    0
- .../modulatedDeformableConv2dKernel.cu        |    0
- .../multiHeadAttnKernel.cu                    |    0
- .../multiHeadFlashAttnKernel.cu               |    0
- .../kernels/multiScaleDeformableAttnKernel.cu |  468 ++++++
- .../rotate => kernels}/rotateKernel.cu        |    0
- TensorRT/lib/.gitignore                       |    2 -
- .../multiScaleDeformableAttnKernel.cu         | 1254 -----------------
+ TensorRT/plugin/bev_pool_v2/bevPoolPlugin.cpp |  117 +-
+ .../plugin/grid_sampler/gridSamplerPlugin.cpp |    4 +
+ .../multiScaleDeformableAttnKernel.cu         | 1220 +++--------------
  .../multiScaleDeformableAttnKernel.h          |   40 -
- .../bev_pool_v2 => plugins}/bevPoolPlugin.cpp |  117 +-
- .../gridSamplerPlugin.cpp                     |    4 +
- .../inverse => plugins}/inversePlugin.cpp     |    0
- .../modulatedDeformableConv2dPlugin.cpp       |    0
- .../multiHeadAttnPlugin.cpp                   |    0
- .../multiScaleDeformableAttnPlugin.cpp        |  100 +-
- .../rotate => plugins}/rotatePlugin.cpp       |    0
- 47 files changed, 852 insertions(+), 1733 deletions(-)
- delete mode 100644 TensorRT/CMakeLists.txt
- create mode 100644 TensorRT/Makefile
- create mode 100644 TensorRT/Makefile.config
- delete mode 100644 TensorRT/README.md
- delete mode 100644 TensorRT/build/.gitignore
- delete mode 100644 TensorRT/cudaComputeVersion.cu
+ .../multiScaleDeformableAttnPlugin.cpp        |   81 +-
+ 29 files changed, 583 insertions(+), 1151 deletions(-)
+ create mode 100755 TensorRT/Makefile
+ create mode 100755 TensorRT/Makefile.config
  rename TensorRT/{plugin/bev_pool_v2 => include}/bevPoolKernel.h (94%)
  rename TensorRT/{plugin/bev_pool_v2 => include}/bevPoolPlugin.h (99%)
  rename TensorRT/{common => include}/checkMacrosPlugin.cpp (100%)
@@ -80,72 +58,11 @@ Subject: [PATCH] fb-occ_trt_plugin
  rename TensorRT/{plugin/rotate => include}/rotateKernel.h (100%)
  rename TensorRT/{plugin/rotate => include}/rotatePlugin.h (100%)
  rename TensorRT/{common => include}/serialize.h (100%)
- delete mode 100644 TensorRT/install.sh
- rename TensorRT/{plugin/bev_pool_v2 => kernels}/bevPoolKernel.cu (100%)
- rename TensorRT/{plugin/grid_sampler => kernels}/gridSamplerKernel.cu (100%)
- rename TensorRT/{plugin/inverse => kernels}/inverseKernel.cu (100%)
- rename TensorRT/{plugin/modulated_deformable_conv2d => kernels}/modulatedDeformableConv2dKernel.cu (100%)
- rename TensorRT/{plugin/multi_head_attn => kernels}/multiHeadAttnKernel.cu (100%)
- rename TensorRT/{plugin/multi_head_attn => kernels}/multiHeadFlashAttnKernel.cu (100%)
- create mode 100644 TensorRT/kernels/multiScaleDeformableAttnKernel.cu
- rename TensorRT/{plugin/rotate => kernels}/rotateKernel.cu (100%)
- delete mode 100644 TensorRT/lib/.gitignore
- delete mode 100644 TensorRT/plugin/multi_scale_deformable_attn/multiScaleDeformableAttnKernel.cu
  delete mode 100644 TensorRT/plugin/multi_scale_deformable_attn/multiScaleDeformableAttnKernel.h
- rename TensorRT/{plugin/bev_pool_v2 => plugins}/bevPoolPlugin.cpp (73%)
- rename TensorRT/{plugin/grid_sampler => plugins}/gridSamplerPlugin.cpp (99%)
- rename TensorRT/{plugin/inverse => plugins}/inversePlugin.cpp (100%)
- rename TensorRT/{plugin/modulated_deformable_conv2d => plugins}/modulatedDeformableConv2dPlugin.cpp (100%)
- rename TensorRT/{plugin/multi_head_attn => plugins}/multiHeadAttnPlugin.cpp (100%)
- rename TensorRT/{plugin/multi_scale_deformable_attn => plugins}/multiScaleDeformableAttnPlugin.cpp (77%)
- rename TensorRT/{plugin/rotate => plugins}/rotatePlugin.cpp (100%)
 
-diff --git a/TensorRT/CMakeLists.txt b/TensorRT/CMakeLists.txt
-deleted file mode 100644
-index 8ff6da2..0000000
---- a/TensorRT/CMakeLists.txt
-+++ /dev/null
-@@ -1,37 +0,0 @@
--cmake_minimum_required(VERSION 3.12)
--
--project(tensorrt_ops LANGUAGES CXX CUDA)
--find_package(CUDA REQUIRED)
--
--execute_process(COMMAND nvcc -lcuda ${CMAKE_CURRENT_SOURCE_DIR}/cudaComputeVersion.cu -o /tmp/cudaComputeVersion)
--execute_process(COMMAND /tmp/cudaComputeVersion
--        RESULT_VARIABLE CUDA_RETURN_CODE
--        OUTPUT_VARIABLE ARCH)
--execute_process(COMMAND rm /tmp/cudaComputeVersion)
--
--if(NOT CMAKE_TENSORRT_PATH)
--    message( "Need: -DCMAKE_TENSORRT_PATH=/path/to/TensorRT")
--
--endif()
--
--include_directories(common)
--include_directories(/usr/local/cuda/include)
--include_directories(/usr/local/include)
--
--message(STATUS "Linking TensorRT directory: ${CMAKE_TENSORRT_PATH}")
--link_directories(${CMAKE_TENSORRT_PATH}/lib)
--include_directories(${CMAKE_TENSORRT_PATH}/include)
--
--file(GLOB_RECURSE TENSORRT_OPS_SRCS common/*.cpp common/*.cu plugin/*/*.cu plugin/*/*.cpp)
--
--set(SHARED_TARGET tensorrt_ops)
--add_library(${SHARED_TARGET} SHARED ${TENSORRT_OPS_SRCS})
--target_compile_options(${SHARED_TARGET} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-arch=sm_${ARCH}>)
--
--target_link_libraries(${SHARED_TARGET} PUBLIC cudnn nvinfer cublas)
--set_target_properties(${SHARED_TARGET} PROPERTIES CUDA_ARCHITECTURES "${ARCH}")
--
--install(
--        TARGETS ${SHARED_TARGET}
--        LIBRARY DESTINATION ${CMAKE_SOURCE_DIR}/lib
--)
 diff --git a/TensorRT/Makefile b/TensorRT/Makefile
-new file mode 100644
-index 0000000..b6fd841
+new file mode 100755
+index 0000000..b86c092
 --- /dev/null
 +++ b/TensorRT/Makefile
 @@ -0,0 +1,25 @@
@@ -169,17 +86,17 @@ index 0000000..b6fd841
 +endif
 +
 +OUTNAME = fb-occ_trt_plugin
-+SRC_FILES = plugins/*.cpp
-+CU_FILES = kernels/*.cu
++SRC_FILES = plugin/*/*.cpp
++CU_FILES = plugin/*/*.cu
 +EXTRA_INCPATHS = -Iinclude
 +MAKEFILE ?= ./Makefile.config
 +include $(MAKEFILE)
 diff --git a/TensorRT/Makefile.config b/TensorRT/Makefile.config
-new file mode 100644
-index 0000000..358b03d
+new file mode 100755
+index 0000000..5dc323a
 --- /dev/null
 +++ b/TensorRT/Makefile.config
-@@ -0,0 +1,207 @@
+@@ -0,0 +1,208 @@
 +# SPDX-FileCopyrightText: Copyright (c) 2023-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 +# SPDX-License-Identifier: LicenseRef-NvidiaProprietary
 +#
@@ -305,6 +222,7 @@ index 0000000..358b03d
 +COMMON_FLAGS += -Wall -std=c++14
 +COMMON_FLAGS += $(INCPATHS)
 +
++
 +COMMON_LD_FLAGS += $(LIBPATHS) -L$(OUTDIR) -Wl,-rpath-link="$(TRT_LIB_DIR)" $(STUBS_DIR)
 +
 +OBJDIR = $(call concat,$(OUTDIR),/chobj)
@@ -387,312 +305,6 @@ index 0000000..358b03d
 +ifneq "$(MAKECMDGOALS)" "clean"
 +  -include $(OBJDIR)/*.d $(DOBJDIR)/*.d
 +endif
-diff --git a/TensorRT/README.md b/TensorRT/README.md
-deleted file mode 100644
-index b5e930e..0000000
---- a/TensorRT/README.md
-+++ /dev/null
-@@ -1,277 +0,0 @@
--# TensorRT Plugins
--
--## Plugins
--
--### Grid Sampler
--
--|      OP Name      |                          Attributes                          |        Inputs         |  Outputs  | FP32 Speed | FP16 Speed | INT8 Speed | Half Type |     Tensor Format     | Test Device |
--| :---------------: | :----------------------------------------------------------: | :-------------------: | :-------: | :--------: | :--------: | :--------: | :-------: | :-------------------: | :---------: |
--| GridSampler2DTRT  | interpolation_mode: int<br />padding_mode: int<br />align_corners: int | input: T<br />grid: T | output: T |     x1     |    x2.0    |    x3.8    |  nv_half  |    kLinear, kCHW4     | RTX 2080Ti  |
--| GridSampler2DTRT2 | interpolation_mode: int<br />padding_mode: int<br />align_corners: int | input: T<br />grid: T | output: T |     x1     |    x3.1    |    x3.8    | nv_half2  | kLinear, kCHW2, kCHW4 | RTX 2080Ti  |
--| GridSampler3DTRT  | interpolation_mode: int<br />padding_mode: int<br />align_corners: int | input: T<br />grid: T | output: T |     x1     |    x1.3    |     -      |  nv_half  |        kLinear        | RTX 2080Ti  |
--| GridSampler3DTRT2 | interpolation_mode: int<br />padding_mode: int<br />align_corners: int | input: T<br />grid: T | output: T |     x1     |    x2.2    |     -      | nv_half2  |        kLinear        | RTX 2080Ti  |
--
--#### Inputs
--
--* input: T[float/half/half2/int8]
--
--  Tensor shape: `[N, C, H_in, W_in]` (4D case) or `[N, C, D_in, H_in, W_in]` (5D case)
--
--* grid: T[float/half/half2/int8]
--
--  Tensor shape: `[N, 2, H_out, W_out]` (4D case) or `[N, 3, D_out, H_out, W_out]` (5D case)
--
--  `grid` specifies the sampling pixel locations normalized by the `input` spatial dimensions. Therefore, it should have most values in the range of ``[-10, 10]``. For example, values ``x = -10, y = -10`` is the left-top pixel of `input`, and values  ``x = 10, y = 10`` is the right-bottom pixel of `input`.
--
--#### Attributes
--
--* interpolation_mode: int
--
--  Interpolation mode to calculate output values. (0: `bilinear` , 1: `nearest`, 2: `bicubic`) 
--
--  Note:  `bicubic` supports only 4-D input.
--
--* padding_mode: int
--
--  Padding mode for outside grid values. (0: `zeros`, 1: `border`, 2: `reflection`)
--
--* align_corners: int
--
--  If `align_corners=1`, the extrema (`-1` and `1`) are considered as referring to the center points of the input's corner pixels. If `align_corners=0`, they are instead considered as referring to the corner points of the input's corner pixels, making the sampling more resolution agnostic.
--
--#### Outputs
--
--* output: T[float/half/half2/int8]
--
--  Tensor shape: `[N, C, H_out, W_out]` (4D case) or `[N, C, D_out, H_out, W_out]` (5D case)
--
--### Multi-scale Deformable Attention
--
--|           OP Name            | Attributes |                            Inputs                            |  Outputs  | FP32 Speed | FP16 Speed | INT8/FP16 Speed | Half Type | Tensor Format | Test Device |
--| :--------------------------: | :--------: | :----------------------------------------------------------: | :-------: | :--------: | :--------: | :-------------: | :-------: | :-----------: | :---------: |
--| MultiScaleDeformableAttnTRT  |     -      | value: T<br />value_spatial_shapes: T<br />sampling_locations: T<br />attention_weights: T | output: T |     x1     |    x1.3    |      x3.2       |  nv_half  |    kLinear    | RTX 2080Ti  |
--| MultiScaleDeformableAttnTRT2 |     -      | value: T<br />value_spatial_shapes: T<br />value_level_start_index: T<br />sampling_locations: T<br />attention_weights: T | output: T |     x1     |    x2.0    |      x2.7       | nv_half2  |    kLinear    | RTX 2080Ti  |
--
--#### Inputs
--
--* value: T[float/half/half2/int8]
--
--  Tensor shape: `[N, num_keys, mum_heads, channel]` 
--
--* value_spatial_shapes: T[int32]
--
--  Spatial shape of each feature map, has shape `[num_levels, 2]`, last dimension 2 represent (h, w)
--
--* reference_points: T[float/half2]
--
--  The reference points.
--
--  Tensor shape: `[N, num_queries, 1, points_per_group * 2]` 
--
--* sampling_offsets: T[float/half/half2/int8]
--
--  The offset of sampling points.
--
--  Tensor shape: `[N, num_queries, num_heads, num_levels * num_points * 2]` 
--
--* attention_weights: T[float/half/int8]
--
--  The weight of sampling points used when calculate the attention (before softmax), has shape` [N ,num_queries, num_heads, num_levels * num_points]`.
--
--#### Attributes
--
--​	-
--
--#### Outputs
--
--* output: T[float/half/int8]
--
--  Tensor shape: `[N, num_queries, mum_heads, channel]`
--
--### Modulated Deformable Conv2d
--
--|            OP Name            |                          Attributes                          |                            Inputs                            |  Outputs  | FP32 Speed | FP16 Speed | INT8/FP16 Speed | Half Type |     Tensor Format     | Test Device |
--| :---------------------------: | :----------------------------------------------------------: | :----------------------------------------------------------: | :-------: | :--------: | :--------: | :-------------: | :-------: | :-------------------: | :---------: |
--| ModulatedDeformableConv2dTRT  | stride: int[2]<br />padding: int[2]<br />dilation: int[2]<br />groups: int<br />deform_groups: int | input: T<br />offset: T<br />mask: T<br />weight: T<br />bias: T (optional) | output: T |     x1     |    x2.9    |      x3.7       |  nv_half  |    kLinear, kCHW4     | RTX 2080Ti  |
--| ModulatedDeformableConv2dTRT2 | stride: int[2]<br />padding: int[2]<br />dilation: int[2]<br />groups: int<br />deform_groups: int | input: T<br />offset: T<br />mask: T<br />weight: T<br />bias: T (optional) | output: T |     x1     |    x3.5    |      x3.7       | nv_half2  | kLinear, kCHW2, kCHW4 | RTX 2080Ti  |
--
--#### Inputs
--
--* input: T[float/half/half2/int8]
--
--  Tensor shape: `[N, C_in, H_in, W_in]` 
--
--* offset: T[float/half/half2/int8]
--
--  Tensor shape: `[N, deform_groups*K_h*K_w*2, H_out, W_out]`
--
--* mask: T[float/half/half2/int8]
--
--  Tensor shape: `[N, deform_groups*K_h*K_w, H_out, W_out]`
--
--* weight: T[float/half/half2/int8]
--
--  Tensor shape: `[C_out, C_in/groups, K_h, K_w]`
--
--* bias: T[float/half/half2] (optional)
--
--  Tensor shape: `[C_out]`
--
--#### Attributes
--
--* stride: int[2]
--
--  Same as torch.nn.Conv2d.
--
--* padding: int[2]
--
--  Same as torch.nn.Conv2d.
--
--* dilation: int[2]
--
--  Same as torch.nn.Conv2d.
--
--* groups: int
--
--  Same as torch.nn.Conv2d.
--
--* deform_groups: int
--
--  Deformable conv2d groups.
--
--#### Outputs
--
--* output: T[float/half/half2/int8]
--
--  Tensor shape: `[N, C_out, H_out, W_out]`
--
--**NOTE: Values (C_in / groups) and (C_in / deform_groups) should be even numbers.**
--
--### Rotate
--
--|  OP Name   |     Attributes     |               Inputs                |  Outputs  | FP32 Speed | FP16 Speed | INT8/FP16 Speed | Half Type |     Tensor Format     | Test Device |
--| :--------: | :----------------: | :---------------------------------: | :-------: | :--------: | :--------: | :-------------: | :-------: | :-------------------: | :---------: |
--| RotateTRT  | interpolation: int | img: T<br />angle: T<br />center: T | output: T |     x1     |    X1.8    |      X4.4       |  nv_half  |    kLinear, kCHW4     | RTX 2080Ti  |
--| RotateTRT2 | interpolation: int | img: T<br />angle: T<br />center: T | output: T |     x1     |    x2.2    |      x4.4       | nv_half2  | kLinear, kCHW2, kCHW4 | RTX 2080Ti  |
--
--#### Inputs
--
--* img: T[float/half/half2/int8]
--
--  Tensor shape: `[C, H, W]` 
--
--* angle: T[float/half/half2]
--
--  Tensor shape: `[1]`
--
--* center: T[float/half/half2]
--
--  Tensor shape: `[2]`
--
--
--#### Attributes
--
--* interpolation: int
--
--  Interpolation mode to calculate output values. (0: `bilinear` , 1: `nearest`) 
--
--#### Outputs
--
--* output: T[float/half/half2/int8]
--
--  Tensor shape: `[C, H, W]`
--
--### Inverse
--
--|  OP Name   | Attributes |     Inputs      |     Outputs      | Tensor Format | Test Device |
--| :--------: | :--------: | :-------------: | :--------------: | :-----------: | :---------: |
--| InverseTRT |     -      | input: T[float] | output: T[float] |    kLinear    | RTX 2080Ti  |
--
--#### Inputs
--
--* input: T[float]
--
--  Tensor shape: `[B, C, H, W]` 
--
--#### Outputs
--
--* output: T[float]
--
--  Tensor shape: `[B, C, H, W]`
--
--### BEV Pool
--
--|    OP Name    |             Attributes              |                            Inputs                            |  Outputs  | FP32 Speed | FP16 Speed | INT8 Speed | Half Type | Tensor Format | Test Device |
--| :-----------: | :---------------------------------: | :----------------------------------------------------------: | :-------: | :--------: | :--------: | :--------: | :-------: | :-----------: | :---------: |
--| BEVPoolV2TRT  | out_height: int<br />out_width: int | depth: T<br />feat: T<br />ranks_depth: T<br />ranks_feat: T<br /> ranks_bev: T<br /> interval_starts: T<br />interval_lengths: T | output: T |     x1     |    X1.1    |    X2.1    |  nv_half  |    kLinear    | RTX 2080Ti  |
--| BEVPoolV2TRT2 | out_height: int<br />out_width: int | depth: T<br />feat: T<br />ranks_depth: T<br />ranks_feat: T<br /> ranks_bev: T<br /> interval_starts: T<br />interval_lengths: T | output: T |     x1     |    x1.4    |    X2.1    | nv_half2  |    kLinear    | RTX 2080Ti  |
--
--#### Inputs
--
--* depth: T[float/half/half2/int8]
--
--  Tensor shape: `[Cam, D, H, W]` 
--
--* feat: T[float/half/half2/int8]
--
--  Tensor shape: `[Cam, H, W, C]`
--
--* ranks_depth: T[int32]
--
--* ranks_feat: T[int32]
--
--* ranks_bev: T[int32]
--
--* interval_starts: T[int32]
--
--* interval_lengths: T[int32]
--
--
--#### Attributes
--
--* out_height: int
--
--  BEV feature height
--
--* out_width: int
--
--  BEV feature width
--
--#### Outputs
--
--* output: T[float/half/half2/int8]
--
--  Tensor shape: `[1, out_height, out_width, C]`
--
--### Multi-Head Attention
--
--| OP Name |               Inputs               |  Outputs  | FP32 Speed NHMA | FP16 Speed NHMA | FP32 Speed FHMA | FP16 Speed FHMA | INT8 Speed FHMA | Half Type | Test Device |
--| :-----: | :--------------------------------: | :-------: | :-------------: | :-------------: | :-------------: | :-------------: | :-------------: | :-------: | :---------: |
--| QKVTRT  | query: T<br />key: T<br />value: T | output: T |       x1        |      X2.0       |      x4.6       |      x6.1       |      x8.2       |  nv_half  | RTX 2080Ti  |
--| QKVTRT2 | query: T<br />key: T<br />value: T | output: T |       x1        |      X2.1       |      x4.6       |      x6.3       |      x8.2       | nv_half2  | RTX 2080Ti  |
--
--#### Inputs
--
--* query: T[float/half/half2/int8]
--
--  Tensor shape: `[batch, q_len, channel]` 
--
--* key: T[float/half/half2/int8]
--
--  Tensor shape: `[batch, kv_len, channel]`
--
--* value: T[float/half/half2/int8]
--
--  Tensor shape: `[batch, kv_len, channel]`
--
--#### Attributes
--
--​	-
--
--#### Outputs
--
--* output: T[float/half/half2/int8]
--
--  Tensor shape: `[batch, q_len, channel]` 
--
--**NOTE: If `q_len` and `kv_len` are both multiples of 64, the plugin will run with Flash Multi-Head Attention (FMHA), else Naive Multi-Head Attention (NMHA).**
-diff --git a/TensorRT/build/.gitignore b/TensorRT/build/.gitignore
-deleted file mode 100644
-index d6b7ef3..0000000
---- a/TensorRT/build/.gitignore
-+++ /dev/null
-@@ -1,2 +0,0 @@
--*
--!.gitignore
-diff --git a/TensorRT/cudaComputeVersion.cu b/TensorRT/cudaComputeVersion.cu
-deleted file mode 100644
-index 1ee83ba..0000000
---- a/TensorRT/cudaComputeVersion.cu
-+++ /dev/null
-@@ -1,9 +0,0 @@
--#include <cstdio>
--
--int main() {
--  cudaDeviceProp prop;
--  cudaGetDeviceProperties(&prop, 0);
--  int v = prop.major * 10 + prop.minor;
--  printf("%d", v);
--  return 0;
--}
 diff --git a/TensorRT/plugin/bev_pool_v2/bevPoolKernel.h b/TensorRT/include/bevPoolKernel.h
 similarity index 94%
 rename from TensorRT/plugin/bev_pool_v2/bevPoolKernel.h
@@ -851,192 +463,231 @@ diff --git a/TensorRT/common/serialize.h b/TensorRT/include/serialize.h
 similarity index 100%
 rename from TensorRT/common/serialize.h
 rename to TensorRT/include/serialize.h
-diff --git a/TensorRT/install.sh b/TensorRT/install.sh
-deleted file mode 100644
-index 2f42916..0000000
---- a/TensorRT/install.sh
-+++ /dev/null
-@@ -1,4 +0,0 @@
--cd build
--cmake .. -DCMAKE_TENSORRT_PATH=/usr/local/TensorRT
--make -j$(nproc)
--make install
-diff --git a/TensorRT/plugin/bev_pool_v2/bevPoolKernel.cu b/TensorRT/kernels/bevPoolKernel.cu
-similarity index 100%
-rename from TensorRT/plugin/bev_pool_v2/bevPoolKernel.cu
-rename to TensorRT/kernels/bevPoolKernel.cu
-diff --git a/TensorRT/plugin/grid_sampler/gridSamplerKernel.cu b/TensorRT/kernels/gridSamplerKernel.cu
-similarity index 100%
-rename from TensorRT/plugin/grid_sampler/gridSamplerKernel.cu
-rename to TensorRT/kernels/gridSamplerKernel.cu
-diff --git a/TensorRT/plugin/inverse/inverseKernel.cu b/TensorRT/kernels/inverseKernel.cu
-similarity index 100%
-rename from TensorRT/plugin/inverse/inverseKernel.cu
-rename to TensorRT/kernels/inverseKernel.cu
-diff --git a/TensorRT/plugin/modulated_deformable_conv2d/modulatedDeformableConv2dKernel.cu b/TensorRT/kernels/modulatedDeformableConv2dKernel.cu
-similarity index 100%
-rename from TensorRT/plugin/modulated_deformable_conv2d/modulatedDeformableConv2dKernel.cu
-rename to TensorRT/kernels/modulatedDeformableConv2dKernel.cu
-diff --git a/TensorRT/plugin/multi_head_attn/multiHeadAttnKernel.cu b/TensorRT/kernels/multiHeadAttnKernel.cu
-similarity index 100%
-rename from TensorRT/plugin/multi_head_attn/multiHeadAttnKernel.cu
-rename to TensorRT/kernels/multiHeadAttnKernel.cu
-diff --git a/TensorRT/plugin/multi_head_attn/multiHeadFlashAttnKernel.cu b/TensorRT/kernels/multiHeadFlashAttnKernel.cu
-similarity index 100%
-rename from TensorRT/plugin/multi_head_attn/multiHeadFlashAttnKernel.cu
-rename to TensorRT/kernels/multiHeadFlashAttnKernel.cu
-diff --git a/TensorRT/kernels/multiScaleDeformableAttnKernel.cu b/TensorRT/kernels/multiScaleDeformableAttnKernel.cu
-new file mode 100644
-index 0000000..8b5fbbe
---- /dev/null
-+++ b/TensorRT/kernels/multiScaleDeformableAttnKernel.cu
-@@ -0,0 +1,468 @@
-+//
-+// Created by Derry Lin on 2022/11/7.
-+//
-+
-+#include <cstdio>
-+#include <cuda_fp16.h>
-+
-+#include <algorithm>
-+#include <cmath>
-+#include <vector>
-+
-+#include "cuda_helper.h"
-+#include "helper.h"
-+#include "multiScaleDeformableAttnKernel.h"
-+#include <cstdio>
-+#include <cuda/std/limits>
-+#include <unistd.h>
-+
-+template <typename T>
-+__forceinline__ __device__ T hmax(const T &a, const T &b) {
-+  return max(a, b);
-+}
-+
-+#if __CUDA_ARCH__ >= 800
-+template <>
-+__forceinline__ __device__ __half hmax(const __half &a, const __half &b) {
-+  return __hmax(a, b);
-+}
-+template <>
-+__forceinline__ __device__ __half2 hmax(const __half2 &a, const __half2 &b) {
-+  return __hmax2(a, b);
-+}
-+#else
-+template <>
-+__forceinline__ __device__ __half hmax(const __half &a, const __half &b) {
-+  return __hgt(a, b) ? a : b;
-+}
-+template <>
-+__forceinline__ __device__ __half2 hmax(const __half2 &a, const __half2 &b) {
-+  return __hfma2(__hgt2(a, b), a, __hmul2(__hle2(a, b), b));
-+}
-+#endif
-+
-+template <typename T> __forceinline__ __device__ T sign_05(T x) {
-+  if (x > 0) {
-+    return 0.5f;
+diff --git a/TensorRT/plugin/bev_pool_v2/bevPoolPlugin.cpp b/TensorRT/plugin/bev_pool_v2/bevPoolPlugin.cpp
+index 3aae089..bdec92f 100644
+--- a/TensorRT/plugin/bev_pool_v2/bevPoolPlugin.cpp
++++ b/TensorRT/plugin/bev_pool_v2/bevPoolPlugin.cpp
+@@ -19,6 +19,7 @@ namespace {
+ constexpr char const *BP_PLUGIN_VERSION{"1"};
+ constexpr char const *BP_PLUGIN_NAME{"BEVPoolV2TRT"};
+ constexpr char const *BP_PLUGIN_NAME2{"BEVPoolV2TRT2"};
++constexpr int32_t BP_PLUGIN_SERIALIZATION_VERSION = 1;
+ } // namespace
+ 
+ PluginFieldCollection BEVPoolPluginCreator::mFC{};
+@@ -33,6 +34,14 @@ BEVPoolPlugin::BEVPoolPlugin(int outWidth, int outHeight, bool use_h2)
+ BEVPoolPlugin::BEVPoolPlugin(const void *serialData, size_t serialLength,
+                              bool use_h2)
+     : use_h2(use_h2) {
++  // Deserialize with added version control
++  int32_t version = 0;
++  deserialize_value(&serialData, &serialLength, &version);
++  
++  if (version != BP_PLUGIN_SERIALIZATION_VERSION) {
++    throw std::runtime_error("BEVPoolPlugin: Unsupported serialization version");
 +  }
-+  return -0.5f;
-+}
 +
-+template <typename T> __forceinline__ __device__ int8_t T2int8(T a) {
-+  a = a > 127 ? 127 : a;
-+  a = a < -128 ? -128 : a;
-+  return int8_t(a + sign_05<T>(a));
-+}
+   deserialize_value(&serialData, &serialLength, &mOutWidth);
+   deserialize_value(&serialData, &serialLength, &mOutHeight);
+ }
+@@ -45,75 +54,85 @@ DimsExprs BEVPoolPlugin::getOutputDimensions(
+     int32_t outputIndex, const nvinfer1::DimsExprs *inputs, int32_t nbInputs,
+     nvinfer1::IExprBuilder &exprBuilder) noexcept {
+   nvinfer1::DimsExprs ret;
+-  ret.nbDims = 4;
++  ret.nbDims = 5;
+   ret.d[0] = exprBuilder.constant(1);
+-  ret.d[1] = exprBuilder.constant(mOutHeight);
+-  ret.d[2] = exprBuilder.constant(mOutWidth);
+-  ret.d[3] = inputs[1].d[3];
+-  return ret;
++  ret.d[1] = exprBuilder.constant(8);
++  ret.d[2] = exprBuilder.constant(mOutHeight); 
++  ret.d[3] = exprBuilder.constant(mOutWidth);
++  ret.d[4] = inputs[1].d[4];
++  return ret; 
+ }
+ 
+ int32_t BEVPoolPlugin::initialize() noexcept { return 0; }
+ 
+ void BEVPoolPlugin::terminate() noexcept {}
+ 
+-size_t
+-BEVPoolPlugin::getWorkspaceSize(const nvinfer1::PluginTensorDesc *inputs,
+-                                int32_t nbInputs,
+-                                const nvinfer1::PluginTensorDesc *outputs,
+-                                int32_t nbOutputs) const noexcept {
++size_t BEVPoolPlugin::getWorkspaceSize(
++    const nvinfer1::PluginTensorDesc *inputs, int32_t nbInputs,
++    const nvinfer1::PluginTensorDesc *outputs, int32_t nbOutputs) const noexcept {
+   return 0;
+ }
+ 
+-int32_t BEVPoolPlugin::enqueue(const nvinfer1::PluginTensorDesc *inputDesc,
+-                               const nvinfer1::PluginTensorDesc *outputDesc,
+-                               const void *const *inputs, void *const *outputs,
+-                               void *workspace, cudaStream_t stream) noexcept {
+-  nvinfer1::Dims feat_dims = inputDesc[1].dims;     // bnhwc
+-  nvinfer1::Dims interval_dims = inputDesc[5].dims; // n
+-  nvinfer1::Dims out_dims = outputDesc[0].dims;     // bhwc
++int32_t BEVPoolPlugin::enqueue(
++    const nvinfer1::PluginTensorDesc *inputDesc,
++    const nvinfer1::PluginTensorDesc *outputDesc,
++    const void *const *inputs, void *const *outputs, void *workspace,
++    cudaStream_t stream) noexcept {
++  nvinfer1::Dims feat_dims = inputDesc[1].dims;
++  nvinfer1::Dims interval_dims = inputDesc[5].dims;
++  nvinfer1::Dims out_dims = outputDesc[0].dims;
+   auto data_type = inputDesc[0].type;
+-  int num_points =
+-      out_dims.d[0] * out_dims.d[1] * out_dims.d[2] * out_dims.d[3];
+-  switch (data_type) {
+-  case nvinfer1::DataType::kFLOAT:
+-    bev_pool_v2(feat_dims.d[3], interval_dims.d[0], num_points,
+-                (float *)inputs[0], (float *)inputs[1], (int *)inputs[2],
+-                (int *)inputs[3], (int *)inputs[4], (int *)inputs[5],
+-                (int *)inputs[6], (float *)outputs[0], stream);
+-    break;
+-  case nvinfer1::DataType::kHALF:
+-    if (use_h2) {
+-      bev_pool_v2_h2(feat_dims.d[3], interval_dims.d[0], num_points,
+-                     (__half *)inputs[0], (__half2 *)inputs[1],
+-                     (int *)inputs[2], (int *)inputs[3], (int *)inputs[4],
+-                     (int *)inputs[5], (int *)inputs[6], (__half2 *)outputs[0],
+-                     stream);
+-    } else {
+-      bev_pool_v2(feat_dims.d[3], interval_dims.d[0], num_points,
+-                  (__half *)inputs[0], (__half *)inputs[1], (int *)inputs[2],
 +
-+template <> __forceinline__ __device__ int8_t T2int8(__half a) {
-+  short temp = __half2short_rn(a);
-+  temp = temp > static_cast<short>(127) ? static_cast<short>(127) : temp;
-+  temp = temp < static_cast<short>(-128) ? static_cast<short>(-128) : temp;
-+  return static_cast<int8_t>(temp);
-+}
++  int num_points = out_dims.d[0] * out_dims.d[1] * out_dims.d[2] * out_dims.d[3] * out_dims.d[4];
 +
-+template <typename T> __forceinline__ __device__ uint8_t T2uint8(T a) {
-+  a = a > 255 ? 255 : a;
-+  a = a < 0 ? 0 : a;
-+  return uint8_t(a + 0.5);
-+}
++  try {
++    switch (data_type) {
++    case nvinfer1::DataType::kFLOAT:
++      bev_pool_v2(feat_dims.d[4], interval_dims.d[0], num_points,
++                  (float *)inputs[0], (float *)inputs[1], (int *)inputs[2],
+                   (int *)inputs[3], (int *)inputs[4], (int *)inputs[5],
+-                  (int *)inputs[6], (__half *)outputs[0], stream);
++                  (int *)inputs[6], (float *)outputs[0], stream);
++      break;
++    case nvinfer1::DataType::kHALF:
++      if (use_h2) {
++        bev_pool_v2_h2(feat_dims.d[4], interval_dims.d[0], num_points,
++                       (__half *)inputs[0], (__half2 *)inputs[1],
++                       (int *)inputs[2], (int *)inputs[3], (int *)inputs[4],
++                       (int *)inputs[5], (int *)inputs[6], (__half2 *)outputs[0],
++                       stream);
++      } else {
++        bev_pool_v2(feat_dims.d[4], interval_dims.d[0], num_points,
++                    (__half *)inputs[0], (__half *)inputs[1], (int *)inputs[2],
++                    (int *)inputs[3], (int *)inputs[4], (int *)inputs[5],
++                    (int *)inputs[6], (__half *)outputs[0], stream);
++      }
++      break;
++    case nvinfer1::DataType::kINT8:
++      bev_pool_v2_int8(feat_dims.d[4], interval_dims.d[0], num_points,
++                       (int8_t *)inputs[0], inputDesc[0].scale, 
++                       (int8_4 *)inputs[1], inputDesc[1].scale,
++                       (int *)inputs[2], (int *)inputs[3], (int *)inputs[4], 
++                       (int *)inputs[5], (int *)inputs[6], (int8_4 *)outputs[0],
++                       outputDesc[0].scale, stream);
++      break;
++    default:
++      return 1;
+     }
+-    break;
+-  case nvinfer1::DataType::kINT8:
+-    bev_pool_v2_int8(
+-        feat_dims.d[3], interval_dims.d[0], num_points, (int8_t *)inputs[0],
+-        inputDesc[0].scale, (int8_4 *)inputs[1], inputDesc[1].scale,
+-        (int *)inputs[2], (int *)inputs[3], (int *)inputs[4], (int *)inputs[5],
+-        (int *)inputs[6], (int8_4 *)outputs[0], outputDesc[0].scale, stream);
+-    break;
+-  default:
++  } catch (const std::exception& e) {
++    caughtError(e);
+     return 1;
+   }
+   return 0;
+ }
+ 
+ size_t BEVPoolPlugin::getSerializationSize() const noexcept {
+-  return serialized_size(mOutWidth) + serialized_size(mOutHeight);
++  return serialized_size(BP_PLUGIN_SERIALIZATION_VERSION) +
++         serialized_size(mOutWidth) + 
++         serialized_size(mOutHeight);
+ }
+ 
+ void BEVPoolPlugin::serialize(void *buffer) const noexcept {
++  serialize_value(&buffer, BP_PLUGIN_SERIALIZATION_VERSION); // version control
+   serialize_value(&buffer, mOutWidth);
+   serialize_value(&buffer, mOutHeight);
+ }
+@@ -157,6 +176,10 @@ IPluginV2DynamicExt *BEVPoolPlugin::clone() const noexcept {
+   return nullptr;
+ }
+ 
++// Remaining methods such as setPluginNamespace, getOutputDataType, 
++// configurePlugin, etc. remain similar with consistent error handling as needed.
 +
-+template <> __forceinline__ __device__ uint8_t T2uint8(__half a) {
-+  unsigned short temp = __half2ushort_rn(a);
-+  temp = temp > static_cast<short>(255) ? static_cast<short>(255) : temp;
-+  return static_cast<uint8_t>(temp);
-+}
 +
-+__forceinline__ __device__ int8_t half2int8(const __half &hval,
-+                                            const float &scale) {
-+  __half ret = __hdiv(hval, __float2half(scale));
-+  return T2int8<__half>(ret);
-+}
-+
-+__forceinline__ __device__ uint8_t half2uint8(const __half &hval,
-+                                              const float &scale) {
-+  __half ret = __hdiv(hval, __float2half(scale));
-+  return T2uint8<__half>(ret);
-+}
-+
-+__forceinline__ __device__ void qmulf(const int32_4 &a, int8_4 &c,
-+                                      const float &b) {
-+  c.x = T2int8<float>(a.x * b);
-+  c.y = T2int8<float>(a.y * b);
-+  c.z = T2int8<float>(a.z * b);
-+  c.w = T2int8<float>(a.w * b);
-+}
-+
-+__forceinline__ __device__ void qmulh(const int32_4 &a, int8_4 &c,
-+                                      const __half &b) {
-+  c.x = T2int8<__half>(__int2half_rn(a.x) * b);
-+  c.y = T2int8<__half>(__int2half_rn(a.y) * b);
-+  c.z = T2int8<__half>(__int2half_rn(a.z) * b);
-+  c.w = T2int8<__half>(__int2half_rn(a.w) * b);
-+}
-+
-+__forceinline__ __device__ void dp4a(const int32_t *a, const int32_t *b,
-+                                     int32_t &c) {
-+#if __CUDA_ARCH__ >= 610
-+  asm("dp4a.s32.s32 %0, %1, %2, %3;" : "+r"(c) : "r"(*a), "r"(*b), "r"(c));
-+#else
-+  auto ap = (int8_4 *)a, bp = (int8_4 *)b;
-+
-+  c += ap->x * bp->x;
-+  c += ap->y * bp->y;
-+  c += ap->z * bp->z;
-+  c += ap->w * bp->w;
-+#endif
-+}
-+
-+__forceinline__ __device__ void dp4a(const int32_t *a, const uint32_t *b,
-+                                     int32_t &c) {
-+#if __CUDA_ARCH__ >= 610
-+  asm("dp4a.s32.u32 %0, %1, %2, %3;" : "+r"(c) : "r"(*a), "r"(*b), "r"(c));
-+#else
-+  auto ap = (int8_4 *)a;
-+  auto bp = (uint8_4 *)b;
-+
-+  c += ap->x * bp->x;
-+  c += ap->y * bp->y;
-+  c += ap->z * bp->z;
-+  c += ap->w * bp->w;
-+#endif
-+}
-+
-+template <typename scalar_t>
-+__device__ scalar_t ms_deform_attn_im2col_bilinear(
-+    const scalar_t *&bottom_data, const int &height, const int &width,
-+    const int &nheads, const int &channels, const scalar_t &h,
+ void BEVPoolPlugin::setPluginNamespace(const char *pluginNamespace) noexcept {
+   mPluginNamespace = pluginNamespace;
+ }
+diff --git a/TensorRT/plugin/grid_sampler/gridSamplerPlugin.cpp b/TensorRT/plugin/grid_sampler/gridSamplerPlugin.cpp
+index cc52952..0685125 100644
+--- a/TensorRT/plugin/grid_sampler/gridSamplerPlugin.cpp
++++ b/TensorRT/plugin/grid_sampler/gridSamplerPlugin.cpp
+@@ -121,6 +121,7 @@ int32_t GridSamplerPlugin::enqueue(const nvinfer1::PluginTensorDesc *inputDesc,
+   auto data_type = inputDesc[0].type;
+   ASSERT(data_type == DataType::kFLOAT || data_type == DataType::kHALF ||
+          data_type == DataType::kINT8)
++  
+ 
+   switch (data_type) {
+   case DataType::kFLOAT:
+@@ -130,12 +131,15 @@ int32_t GridSamplerPlugin::enqueue(const nvinfer1::PluginTensorDesc *inputDesc,
+                        mMode, mPaddingMode, mAlignCorners, stream);
+     break;
+   case DataType::kHALF:
++    printf("Entered case DataType::kHALF\n");
+     if (use_h2) {
++      printf("Using __half2 for grid_sample\n");
+       grid_sample<__half2>(
+           (__half2 *)outputs[0], (__half2 *)inputs[0], (__half2 *)inputs[1],
+           &(output_dims.d[0]), &(input_dims.d[0]), &(grid_dims.d[0]),
+           input_dims.nbDims, mMode, mPaddingMode, mAlignCorners, stream);
+     } else {
++      printf("Using __half for grid_sample\n");
+       grid_sample<__half>(
+           (__half *)outputs[0], (__half *)inputs[0], (__half *)inputs[1],
+           &(output_dims.d[0]), &(input_dims.d[0]), &(grid_dims.d[0]),
+diff --git a/TensorRT/plugin/multi_scale_deformable_attn/multiScaleDeformableAttnKernel.cu b/TensorRT/plugin/multi_scale_deformable_attn/multiScaleDeformableAttnKernel.cu
+index e1a70ac..8b5fbbe 100644
+--- a/TensorRT/plugin/multi_scale_deformable_attn/multiScaleDeformableAttnKernel.cu
++++ b/TensorRT/plugin/multi_scale_deformable_attn/multiScaleDeformableAttnKernel.cu
+@@ -134,9 +134,9 @@ template <typename scalar_t>
+ __device__ scalar_t ms_deform_attn_im2col_bilinear(
+     const scalar_t *&bottom_data, const int &height, const int &width,
+     const int &nheads, const int &channels, const scalar_t &h,
+-    const scalar_t &w) {
+-  const int h_low = floorf(h);
+-  const int w_low = floorf(w);
 +    const scalar_t &w, const int &m, const int &c) {
 +  const int h_low = floor(h);
 +  const int w_low = floor(w);
-+  const int h_high = h_low + 1;
-+  const int w_high = w_low + 1;
-+
-+  const scalar_t lh = h - h_low;
-+  const scalar_t lw = w - w_low;
-+  const scalar_t hh = 1 - lh, hw = 1 - lw;
-+
+   const int h_high = h_low + 1;
+   const int w_high = w_low + 1;
+ 
+@@ -144,35 +144,36 @@ __device__ scalar_t ms_deform_attn_im2col_bilinear(
+   const scalar_t lw = w - w_low;
+   const scalar_t hh = 1 - lh, hw = 1 - lw;
+ 
+-  const int h_low_ptr_offset = h_low * width;
+-  const int h_high_ptr_offset = h_low_ptr_offset + width;
+-  const int w_low_ptr_offset = w_low;
+-  const int w_high_ptr_offset = w_low_ptr_offset + 1;
+-  const int step = channels * nheads;
 +  const int w_stride = nheads * channels;
 +  const int h_stride = width * w_stride;
 +  const int h_low_ptr_offset = h_low * h_stride;
@@ -1044,36 +695,46 @@ index 0000000..8b5fbbe
 +  const int w_low_ptr_offset = w_low * w_stride;
 +  const int w_high_ptr_offset = w_low_ptr_offset + w_stride;
 +  const int base_ptr = m * channels + c;
-+
-+  scalar_t v1 = 0;
-+  if (h_low >= 0 && w_low >= 0) {
+ 
+   scalar_t v1 = 0;
+   if (h_low >= 0 && w_low >= 0) {
+-    const int ptr1 = (h_low_ptr_offset + w_low_ptr_offset) * step;
 +    const int ptr1 = h_low_ptr_offset + w_low_ptr_offset + base_ptr;
-+    v1 = bottom_data[ptr1];
-+  }
-+  scalar_t v2 = 0;
-+  if (h_low >= 0 && w_high <= width - 1) {
+     v1 = bottom_data[ptr1];
+   }
+   scalar_t v2 = 0;
+   if (h_low >= 0 && w_high <= width - 1) {
+-    const int ptr2 = (h_low_ptr_offset + w_high_ptr_offset) * step;
 +    const int ptr2 = h_low_ptr_offset + w_high_ptr_offset + base_ptr;
-+    v2 = bottom_data[ptr2];
-+  }
-+  scalar_t v3 = 0;
-+  if (h_high <= height - 1 && w_low >= 0) {
+     v2 = bottom_data[ptr2];
+   }
+   scalar_t v3 = 0;
+   if (h_high <= height - 1 && w_low >= 0) {
+-    const int ptr3 = (h_high_ptr_offset + w_low_ptr_offset) * step;
 +    const int ptr3 = h_high_ptr_offset + w_low_ptr_offset + base_ptr;
-+    v3 = bottom_data[ptr3];
-+  }
-+  scalar_t v4 = 0;
-+  if (h_high <= height - 1 && w_high <= width - 1) {
+     v3 = bottom_data[ptr3];
+   }
+   scalar_t v4 = 0;
+   if (h_high <= height - 1 && w_high <= width - 1) {
+-    const int ptr4 = (h_high_ptr_offset + w_high_ptr_offset) * step;
 +    const int ptr4 = h_high_ptr_offset + w_high_ptr_offset + base_ptr;
-+    v4 = bottom_data[ptr4];
-+  }
-+
-+  const scalar_t w1 = hh * hw, w2 = hh * lw, w3 = lh * hw, w4 = lh * lw;
-+  const scalar_t val = (w1 * v1 + w2 * v2 + w3 * v3 + w4 * v4);
-+  return val;
-+}
-+
-+template <>
-+__device__ __half ms_deform_attn_im2col_bilinear(
-+    const __half *&bottom_data, const int &height, const int &width,
+     v4 = bottom_data[ptr4];
+   }
+ 
+   const scalar_t w1 = hh * hw, w2 = hh * lw, w3 = lh * hw, w4 = lh * lw;
+-
+   const scalar_t val = (w1 * v1 + w2 * v2 + w3 * v3 + w4 * v4);
+   return val;
+ }
+@@ -180,946 +181,221 @@ __device__ scalar_t ms_deform_attn_im2col_bilinear(
+ template <>
+ __device__ __half ms_deform_attn_im2col_bilinear(
+     const __half *&bottom_data, const int &height, const int &width,
+-    const int &nheads, const int &channels, const __half &h, const __half &w) {
+-  const __half h_low = hfloor(h);
+-  const __half w_low = hfloor(w);
+-  const __half h_high = __hadd(h_low, __float2half(1.f));
+-  const __half w_high = __hadd(w_low, __float2half(1.f));
 +    const int &nheads, const int &channels, const __half &h, 
 +    const __half &w, const int &m, const int &c) {
 +  
@@ -1081,12 +742,21 @@ index 0000000..8b5fbbe
 +  const int w_low = __half2int_rn(w);
 +  const int h_high = h_low + 1;
 +  const int w_high = w_low + 1;
-+
+ 
+-  const __half lh = __hsub(h, h_low);
+-  const __half lw = __hsub(w, w_low);
+-  const __half hh = __hsub(__float2half(1.f), lh),
+-               hw = __hsub(__float2half(1.f), lw);
 +  const __half lh = __hsub(h, __int2half_rn(h_low));
 +  const __half lw = __hsub(w, __int2half_rn(w_low));
 +  const __half hh = __hsub(__float2half(1.f), lh);
 +  const __half hw = __hsub(__float2half(1.f), lw);
-+
+ 
+-  const int h_low_ptr_offset = __half2int_rn(h_low) * width;
+-  const int h_high_ptr_offset = h_low_ptr_offset + width;
+-  const int w_low_ptr_offset = __half2int_rn(w_low);
+-  const int w_high_ptr_offset = w_low_ptr_offset + 1;
+-  const int step = channels * nheads;
 +  const int w_stride = nheads * channels;
 +  const int h_stride = width * w_stride;
 +  const int h_low_ptr_offset = h_low * h_stride;
@@ -1094,506 +764,31 @@ index 0000000..8b5fbbe
 +  const int w_low_ptr_offset = w_low * w_stride;
 +  const int w_high_ptr_offset = w_low_ptr_offset + w_stride;
 +  const int base_ptr = m * channels + c;
-+
-+  __half v1 = 0;
-+  if (h_low >= 0 && w_low >= 0) {
-+    const int ptr1 = h_low_ptr_offset + w_low_ptr_offset + base_ptr;
-+    v1 = bottom_data[ptr1];
-+  }
-+  __half v2 = 0;
-+  if (h_low >= 0 && w_high <= width - 1) {
-+    const int ptr2 = h_low_ptr_offset + w_high_ptr_offset + base_ptr;
-+    v2 = bottom_data[ptr2];
-+  }
-+  __half v3 = 0;
-+  if (h_high <= height - 1 && w_low >= 0) {
-+    const int ptr3 = h_high_ptr_offset + w_low_ptr_offset + base_ptr;
-+    v3 = bottom_data[ptr3];
-+  }
-+  __half v4 = 0;
-+  if (h_high <= height - 1 && w_high <= width - 1) {
-+    const int ptr4 = h_high_ptr_offset + w_high_ptr_offset + base_ptr;
-+    v4 = bottom_data[ptr4];
-+  }
-+
-+  const __half w1 = __hmul(hh, hw);
-+  const __half w2 = __hmul(hh, lw);
-+  const __half w3 = __hmul(lh, hw);
-+  const __half w4 = __hmul(lh, lw);
-+
-+  return __hadd(__hadd(__hmul(w1, v1), __hmul(w2, v2)),
-+                __hadd(__hmul(w3, v3), __hmul(w4, v4)));
-+}
-+
-+
-+
-+
-+template <typename scalar_t>
-+__global__ void ms_deformable_im2col_gpu_kernel(
-+    const int n,
-+    const scalar_t *data_value, 
-+    const int *data_spatial_shapes,
-+    const int *data_level_start_index, 
-+    const scalar_t *data_sampling_loc,
-+    const scalar_t *data_attn_weight, 
-+    const int batch_size,
-+    const int spatial_size, 
-+    const int num_heads, 
-+    const int channels,
-+    const int num_levels, 
-+    const int num_query, 
-+    const int num_point,
-+    scalar_t *data_col) {
-+  CUDA_1D_KERNEL_LOOP(index, n) {
-+    int _temp = index;
-+    const int c_col = _temp % channels;
-+    _temp /= channels;
-+    const int sampling_index = _temp;
-+    const int m_col = _temp % num_heads;
-+    _temp /= num_heads;
-+    _temp /= num_query;
-+    const int b_col = _temp;
-+
-+    scalar_t *data_col_ptr = data_col + index;
-+    int data_weight_ptr = sampling_index * num_levels * num_point;
-+    int data_loc_w_ptr = data_weight_ptr << 1;
-+    const int qid_stride = num_heads * channels;
-+    const int data_value_ptr_init_offset = b_col * spatial_size * qid_stride;
-+    scalar_t col = 0;
-+    
-+    for (int l_col = 0; l_col < num_levels; ++l_col) {
-+      const int level_start_id = data_level_start_index[l_col];
-+      const int spatial_h_ptr = l_col << 1;
-+      const int spatial_h = data_spatial_shapes[spatial_h_ptr];
-+      const int spatial_w = data_spatial_shapes[spatial_h_ptr + 1];
-+      
-+      const scalar_t *data_value_ptr =
-+          data_value + (data_value_ptr_init_offset + level_start_id * qid_stride);
-+      for (int p_col = 0; p_col < num_point; ++p_col) {
-+        const scalar_t loc_w = data_sampling_loc[data_loc_w_ptr];
-+        const scalar_t loc_h = data_sampling_loc[data_loc_w_ptr + 1];
-+        const scalar_t weight = data_attn_weight[data_weight_ptr];
-+
-+        const scalar_t h_im = loc_h * spatial_h - 0.5;
-+        const scalar_t w_im = loc_w * spatial_w - 0.5;
-+
-+        if (h_im > -1 && w_im > -1 && h_im < spatial_h && w_im < spatial_w) {
-+          col += ms_deform_attn_im2col_bilinear(data_value_ptr, spatial_h,
-+                                                spatial_w, num_heads, channels,
-+                                                h_im, w_im, m_col, c_col) * weight;
-+        }
-+        data_weight_ptr += 1;
-+        data_loc_w_ptr += 2;
-+      }
-+    }
-+    *data_col_ptr = col;
-+  }
-+}
-+
-+template <>
-+__global__ void ms_deformable_im2col_gpu_kernel(
-+    const int n, 
-+    const __half *data_value, 
-+    const int *data_spatial_shapes,
-+    const int *data_level_start_index, 
-+    const __half *data_sampling_loc,
-+    const __half *data_attn_weight, 
-+    const int batch_size, 
-+    const int spatial_size,
-+    const int num_heads, 
-+    const int channels, 
-+    const int num_levels,
-+    const int num_query, 
-+    const int num_point, 
-+    __half *data_col) {
-+  CUDA_1D_KERNEL_LOOP(index, n) {
-+    int _temp = index;
-+    const int c_col = _temp % channels;
-+    _temp /= channels;
-+    const int sampling_index = _temp;
-+    const int m_col = _temp % num_heads;
-+    _temp /= num_heads;
-+    _temp /= num_query;
-+    const int b_col = _temp;
-+
-+    __half *data_col_ptr = data_col + index;
-+    int data_weight_ptr = sampling_index * num_levels * num_point;
-+    int data_loc_w_ptr = data_weight_ptr << 1;
-+    const int qid_stride = num_heads * channels;
-+    const int data_value_ptr_init_offset = b_col * spatial_size * qid_stride;
-+    __half col = 0;
-+    
-+    for (int l_col = 0; l_col < num_levels; ++l_col) {
-+      const int level_start_id = data_level_start_index[l_col];
-+      const int spatial_h_ptr = l_col << 1;
-+      const int spatial_h = data_spatial_shapes[spatial_h_ptr];
-+      const int spatial_w = data_spatial_shapes[spatial_h_ptr + 1];
-+      
-+      const __half *data_value_ptr =
-+          data_value + (data_value_ptr_init_offset + level_start_id * qid_stride);
-+      for (int p_col = 0; p_col < num_point; ++p_col) {
-+        const __half loc_w = data_sampling_loc[data_loc_w_ptr];
-+        const __half loc_h = data_sampling_loc[data_loc_w_ptr + 1];
-+        const __half weight = data_attn_weight[data_weight_ptr];
-+
-+        const __half h_im = __hsub(__hmul(loc_h, __int2half_rn(spatial_h)), __float2half(0.5f));
-+        const __half w_im = __hsub(__hmul(loc_w, __int2half_rn(spatial_w)), __float2half(0.5f));
-+
-+        if (__hgt(h_im, __float2half(-1.f)) && __hgt(w_im, __float2half(-1.f)) &&
-+            __hlt(h_im, __int2half_rn(spatial_h)) && __hlt(w_im, __int2half_rn(spatial_w))) {
-+          // Pass data_value_ptr by reference
-+          col += ms_deform_attn_im2col_bilinear(data_value_ptr,
-+                                                   spatial_h, 
-+                                                   spatial_w, 
-+                                                   num_heads, 
-+                                                   channels, 
-+                                                   h_im, w_im, 
-+                                                   m_col, c_col) * weight;
-+        }
-+        
-+        data_weight_ptr += 1;
-+        data_loc_w_ptr += 2;
-+      }
-+    }
-+    *data_col_ptr = col;
-+  }
-+}
-+
-+
-+
-+template <typename scalar_t>
-+void ms_deformable_im2col_cuda(const scalar_t *data_value,
-+                               const int *data_spatial_shapes,
-+                               const int *data_level_start_index,
-+                               const scalar_t *data_sampling_loc,
-+                               const scalar_t *data_attn_weight,
-+                               const int batch_size, 
-+                               const int spatial_size,
-+                               const int num_heads,
-+                               const int channels,
-+                               const int num_levels, 
-+                               const int num_query,
-+                               const int num_point,
-+                               scalar_t *data_col, 
-+                               cudaStream_t stream) {
-+  
-+  const int num_kernels = batch_size * num_query * num_heads * channels;
-+  const int num_threads = THREADS_PER_BLOCK;
-+  // printf("%d", data_spatial_shapes);
-+  cudaMemset((scalar_t *)data_col, 0, num_kernels * sizeof(scalar_t));
-+  
-+  ms_deformable_im2col_gpu_kernel<scalar_t>
-+      <<<GET_BLOCKS(num_kernels), num_threads, 0, stream>>>(
-+          num_kernels, data_value, data_spatial_shapes, 
-+          data_level_start_index, data_sampling_loc, 
-+          data_attn_weight, batch_size, 
-+          spatial_size, num_heads, channels, 
-+          num_levels, num_query, num_point,
-+          data_col);
-+  cudaError_t err = cudaGetLastError();
-+  if (err != cudaSuccess) {
-+    printf("error in ms_deformable_im2col_cuda: %s\n", cudaGetErrorString(err));
-+  }
-+}
-+
-+
-+template <>
-+void ms_deformable_im2col_cuda(
-+    const __half *data_value, const int *data_spatial_shapes,
-+    const int *data_level_start_index, const __half *data_sampling_loc,
-+    const __half *data_attn_weight, const int batch_size,
-+    const int spatial_size, const int num_heads, const int channels,
-+    const int num_levels, const int num_query, const int num_point,
-+    __half *data_col, cudaStream_t stream) {
-+  
-+  const int num_kernels = batch_size * num_query * num_heads * channels;
-+  const int num_threads = THREADS_PER_BLOCK;
-+  
-+  // Initialize output memory
-+  cudaMemset(data_col, 0, num_kernels * sizeof(__half));
-+
-+  ms_deformable_im2col_gpu_kernel<__half>
-+      <<<GET_BLOCKS(num_kernels), num_threads, 0, stream>>>(
-+          num_kernels, data_value, data_spatial_shapes, 
-+          data_level_start_index, data_sampling_loc, 
-+          data_attn_weight, batch_size, spatial_size, 
-+          num_heads, channels, num_levels, num_query, num_point,
-+          data_col);
-+  
-+  cudaError_t err = cudaGetLastError();
-+  if (err != cudaSuccess) {
-+    printf("error in ms_deformable_im2col_cuda: %s\n", cudaGetErrorString(err));
-+  }
-+}
-+
-+
-+template void ms_deformable_im2col_cuda<float>(
-+    const float *data_value, 
-+    const int *data_spatial_shapes,
-+    const int *data_level_start_index, 
-+    const float *data_sampling_loc,
-+    const float *data_attn_weight, 
-+    const int batch_size, 
-+    const int spatial_size,
-+    const int num_heads, 
-+    const int channels, 
-+    const int num_levels,
-+    const int num_query, 
-+    const int num_point,
-+    float *data_col, 
-+    cudaStream_t stream);
-+
-+
-+template void ms_deformable_im2col_cuda<__half>(
-+    const __half *data_value, 
-+    const int *data_spatial_shapes,
-+    const int *data_level_start_index, 
-+    const __half *data_sampling_loc,
-+    const __half *data_attn_weight, 
-+    const int batch_size,
-+    const int spatial_size, 
-+    const int num_heads, 
-+    const int channels,
-+    const int num_levels, 
-+    const int num_query, 
-+    const int num_point,
-+    __half *data_col, 
-+    cudaStream_t stream);
-diff --git a/TensorRT/plugin/rotate/rotateKernel.cu b/TensorRT/kernels/rotateKernel.cu
-similarity index 100%
-rename from TensorRT/plugin/rotate/rotateKernel.cu
-rename to TensorRT/kernels/rotateKernel.cu
-diff --git a/TensorRT/lib/.gitignore b/TensorRT/lib/.gitignore
-deleted file mode 100644
-index d6b7ef3..0000000
---- a/TensorRT/lib/.gitignore
-+++ /dev/null
-@@ -1,2 +0,0 @@
--*
--!.gitignore
-diff --git a/TensorRT/plugin/multi_scale_deformable_attn/multiScaleDeformableAttnKernel.cu b/TensorRT/plugin/multi_scale_deformable_attn/multiScaleDeformableAttnKernel.cu
-deleted file mode 100644
-index e1a70ac..0000000
---- a/TensorRT/plugin/multi_scale_deformable_attn/multiScaleDeformableAttnKernel.cu
-+++ /dev/null
-@@ -1,1254 +0,0 @@
--//
--// Created by Derry Lin on 2022/11/7.
--//
--
--#include <cstdio>
--#include <cuda_fp16.h>
--
--#include <algorithm>
--#include <cmath>
--#include <vector>
--
--#include "cuda_helper.h"
--#include "helper.h"
--#include "multiScaleDeformableAttnKernel.h"
--#include <cstdio>
--#include <cuda/std/limits>
--#include <unistd.h>
--
--template <typename T>
--__forceinline__ __device__ T hmax(const T &a, const T &b) {
--  return max(a, b);
--}
--
--#if __CUDA_ARCH__ >= 800
--template <>
--__forceinline__ __device__ __half hmax(const __half &a, const __half &b) {
--  return __hmax(a, b);
--}
--template <>
--__forceinline__ __device__ __half2 hmax(const __half2 &a, const __half2 &b) {
--  return __hmax2(a, b);
--}
--#else
--template <>
--__forceinline__ __device__ __half hmax(const __half &a, const __half &b) {
--  return __hgt(a, b) ? a : b;
--}
--template <>
--__forceinline__ __device__ __half2 hmax(const __half2 &a, const __half2 &b) {
--  return __hfma2(__hgt2(a, b), a, __hmul2(__hle2(a, b), b));
--}
--#endif
--
--template <typename T> __forceinline__ __device__ T sign_05(T x) {
--  if (x > 0) {
--    return 0.5f;
--  }
--  return -0.5f;
--}
--
--template <typename T> __forceinline__ __device__ int8_t T2int8(T a) {
--  a = a > 127 ? 127 : a;
--  a = a < -128 ? -128 : a;
--  return int8_t(a + sign_05<T>(a));
--}
--
--template <> __forceinline__ __device__ int8_t T2int8(__half a) {
--  short temp = __half2short_rn(a);
--  temp = temp > static_cast<short>(127) ? static_cast<short>(127) : temp;
--  temp = temp < static_cast<short>(-128) ? static_cast<short>(-128) : temp;
--  return static_cast<int8_t>(temp);
--}
--
--template <typename T> __forceinline__ __device__ uint8_t T2uint8(T a) {
--  a = a > 255 ? 255 : a;
--  a = a < 0 ? 0 : a;
--  return uint8_t(a + 0.5);
--}
--
--template <> __forceinline__ __device__ uint8_t T2uint8(__half a) {
--  unsigned short temp = __half2ushort_rn(a);
--  temp = temp > static_cast<short>(255) ? static_cast<short>(255) : temp;
--  return static_cast<uint8_t>(temp);
--}
--
--__forceinline__ __device__ int8_t half2int8(const __half &hval,
--                                            const float &scale) {
--  __half ret = __hdiv(hval, __float2half(scale));
--  return T2int8<__half>(ret);
--}
--
--__forceinline__ __device__ uint8_t half2uint8(const __half &hval,
--                                              const float &scale) {
--  __half ret = __hdiv(hval, __float2half(scale));
--  return T2uint8<__half>(ret);
--}
--
--__forceinline__ __device__ void qmulf(const int32_4 &a, int8_4 &c,
--                                      const float &b) {
--  c.x = T2int8<float>(a.x * b);
--  c.y = T2int8<float>(a.y * b);
--  c.z = T2int8<float>(a.z * b);
--  c.w = T2int8<float>(a.w * b);
--}
--
--__forceinline__ __device__ void qmulh(const int32_4 &a, int8_4 &c,
--                                      const __half &b) {
--  c.x = T2int8<__half>(__int2half_rn(a.x) * b);
--  c.y = T2int8<__half>(__int2half_rn(a.y) * b);
--  c.z = T2int8<__half>(__int2half_rn(a.z) * b);
--  c.w = T2int8<__half>(__int2half_rn(a.w) * b);
--}
--
--__forceinline__ __device__ void dp4a(const int32_t *a, const int32_t *b,
--                                     int32_t &c) {
--#if __CUDA_ARCH__ >= 610
--  asm("dp4a.s32.s32 %0, %1, %2, %3;" : "+r"(c) : "r"(*a), "r"(*b), "r"(c));
--#else
--  auto ap = (int8_4 *)a, bp = (int8_4 *)b;
--
--  c += ap->x * bp->x;
--  c += ap->y * bp->y;
--  c += ap->z * bp->z;
--  c += ap->w * bp->w;
--#endif
--}
--
--__forceinline__ __device__ void dp4a(const int32_t *a, const uint32_t *b,
--                                     int32_t &c) {
--#if __CUDA_ARCH__ >= 610
--  asm("dp4a.s32.u32 %0, %1, %2, %3;" : "+r"(c) : "r"(*a), "r"(*b), "r"(c));
--#else
--  auto ap = (int8_4 *)a;
--  auto bp = (uint8_4 *)b;
--
--  c += ap->x * bp->x;
--  c += ap->y * bp->y;
--  c += ap->z * bp->z;
--  c += ap->w * bp->w;
--#endif
--}
--
--template <typename scalar_t>
--__device__ scalar_t ms_deform_attn_im2col_bilinear(
--    const scalar_t *&bottom_data, const int &height, const int &width,
--    const int &nheads, const int &channels, const scalar_t &h,
--    const scalar_t &w) {
--  const int h_low = floorf(h);
--  const int w_low = floorf(w);
--  const int h_high = h_low + 1;
--  const int w_high = w_low + 1;
--
--  const scalar_t lh = h - h_low;
--  const scalar_t lw = w - w_low;
--  const scalar_t hh = 1 - lh, hw = 1 - lw;
--
--  const int h_low_ptr_offset = h_low * width;
--  const int h_high_ptr_offset = h_low_ptr_offset + width;
--  const int w_low_ptr_offset = w_low;
--  const int w_high_ptr_offset = w_low_ptr_offset + 1;
--  const int step = channels * nheads;
--
--  scalar_t v1 = 0;
--  if (h_low >= 0 && w_low >= 0) {
--    const int ptr1 = (h_low_ptr_offset + w_low_ptr_offset) * step;
--    v1 = bottom_data[ptr1];
--  }
--  scalar_t v2 = 0;
--  if (h_low >= 0 && w_high <= width - 1) {
--    const int ptr2 = (h_low_ptr_offset + w_high_ptr_offset) * step;
--    v2 = bottom_data[ptr2];
--  }
--  scalar_t v3 = 0;
--  if (h_high <= height - 1 && w_low >= 0) {
--    const int ptr3 = (h_high_ptr_offset + w_low_ptr_offset) * step;
--    v3 = bottom_data[ptr3];
--  }
--  scalar_t v4 = 0;
--  if (h_high <= height - 1 && w_high <= width - 1) {
--    const int ptr4 = (h_high_ptr_offset + w_high_ptr_offset) * step;
--    v4 = bottom_data[ptr4];
--  }
--
--  const scalar_t w1 = hh * hw, w2 = hh * lw, w3 = lh * hw, w4 = lh * lw;
--
--  const scalar_t val = (w1 * v1 + w2 * v2 + w3 * v3 + w4 * v4);
--  return val;
--}
--
--template <>
--__device__ __half ms_deform_attn_im2col_bilinear(
--    const __half *&bottom_data, const int &height, const int &width,
--    const int &nheads, const int &channels, const __half &h, const __half &w) {
--  const __half h_low = hfloor(h);
--  const __half w_low = hfloor(w);
--  const __half h_high = __hadd(h_low, __float2half(1.f));
--  const __half w_high = __hadd(w_low, __float2half(1.f));
--
--  const __half lh = __hsub(h, h_low);
--  const __half lw = __hsub(w, w_low);
--  const __half hh = __hsub(__float2half(1.f), lh),
--               hw = __hsub(__float2half(1.f), lw);
--
--  const int h_low_ptr_offset = __half2int_rn(h_low) * width;
--  const int h_high_ptr_offset = h_low_ptr_offset + width;
--  const int w_low_ptr_offset = __half2int_rn(w_low);
--  const int w_high_ptr_offset = w_low_ptr_offset + 1;
--  const int step = channels * nheads;
--
--  __half v1 = 0;
+ 
+   __half v1 = 0;
 -  if (__hge(h_low, __float2half(0.f)) && __hge(w_low, __float2half(0.f))) {
 -    const int ptr1 = (h_low_ptr_offset + w_low_ptr_offset) * step;
--    v1 = bottom_data[ptr1];
--  }
--  __half v2 = 0;
++  if (h_low >= 0 && w_low >= 0) {
++    const int ptr1 = h_low_ptr_offset + w_low_ptr_offset + base_ptr;
+     v1 = bottom_data[ptr1];
+   }
+   __half v2 = 0;
 -  if (__hge(h_low, __float2half(0.f)) &&
 -      __hle(w_high, __float2half(static_cast<float>(width - 1)))) {
 -    const int ptr2 = (h_low_ptr_offset + w_high_ptr_offset) * step;
--    v2 = bottom_data[ptr2];
--  }
--  __half v3 = 0;
++  if (h_low >= 0 && w_high <= width - 1) {
++    const int ptr2 = h_low_ptr_offset + w_high_ptr_offset + base_ptr;
+     v2 = bottom_data[ptr2];
+   }
+   __half v3 = 0;
 -  if (__hle(h_high, __float2half(static_cast<float>(height - 1))) &&
 -      __hge(w_low, __float2half(0.f))) {
 -    const int ptr3 = (h_high_ptr_offset + w_low_ptr_offset) * step;
--    v3 = bottom_data[ptr3];
--  }
--  __half v4 = 0;
++  if (h_high <= height - 1 && w_low >= 0) {
++    const int ptr3 = h_high_ptr_offset + w_low_ptr_offset + base_ptr;
+     v3 = bottom_data[ptr3];
+   }
+   __half v4 = 0;
 -  if (__hle(h_high, __float2half(static_cast<float>(height - 1))) &&
 -      __hle(w_high, __float2half(static_cast<float>(width - 1)))) {
 -    const int ptr4 = (h_high_ptr_offset + w_high_ptr_offset) * step;
@@ -1711,7 +906,7 @@ index e1a70ac..0000000
 -    inps[3].z = inp.w;
 -  }
 -
--  if (h_high <= height - 1 && w_high <= width - 1) {
+   if (h_high <= height - 1 && w_high <= width - 1) {
 -    const int ptr4 = (h_high_ptr_offset + w_high_ptr_offset) * step;
 -    const int8_4 &inp = bottom_data[ptr4];
 -    inps[0].w = inp.x;
@@ -1804,12 +999,18 @@ index e1a70ac..0000000
 -    inps[1].w = inp->y;
 -    inps[2].w = inp->z;
 -    inps[3].w = inp->w;
--  }
--
++    const int ptr4 = h_high_ptr_offset + w_high_ptr_offset + base_ptr;
++    v4 = bottom_data[ptr4];
+   }
+ 
 -  output_temp = 0;
 -  dp4a(inps_i32, weight_ui32, output_temp);
 -  output[0] = T2int8<__half>(__hdiv(__int2half_rn(output_temp), scale_area));
--
++  const __half w1 = __hmul(hh, hw);
++  const __half w2 = __hmul(hh, lw);
++  const __half w3 = __hmul(lh, hw);
++  const __half w4 = __hmul(lh, lw);
+ 
 -  output_temp = 0;
 -  dp4a(++inps_i32, weight_ui32, output_temp);
 -  output[4] = T2int8<__half>(__hdiv(__int2half_rn(output_temp), scale_area));
@@ -1821,8 +1022,10 @@ index e1a70ac..0000000
 -  output_temp = 0;
 -  dp4a(++inps_i32, weight_ui32, output_temp);
 -  output[12] = T2int8<__half>(__hdiv(__int2half_rn(output_temp), scale_area));
--}
--
++  return __hadd(__hadd(__hmul(w1, v1), __hmul(w2, v2)),
++                __hadd(__hmul(w3, v3), __hmul(w4, v4)));
+ }
+ 
 -__device__ void ms_deform_attn_im2col_bilinear_int8_h2_(
 -    const int8_4 *&bottom_data, const int &height, const int &width,
 -    const int &nheads, const int &channels, const __half2 &w, const __half2 &h,
@@ -1848,14 +1051,14 @@ index e1a70ac..0000000
 -    const int h_high_ptr_offset = h_low_ptr_offset + width * step;
 -    const int w_low_ptr_offset = __half2int_rn(w_low.x) * step;
 -    const int w_high_ptr_offset = w_low_ptr_offset + step;
--
+ 
 -    uint8_4 weight = {
 -        __half2ushort_rn(w1.x),
 -        __half2ushort_rn(w2.x),
 -        __half2ushort_rn(w3.x),
 -        __half2ushort_rn(w4.x),
 -    };
--
+ 
 -    auto weight_ui32 = reinterpret_cast<uint32_t *>(&weight);
 -    int8_4 inps[4] = {0};
 -    auto inps_i32 = reinterpret_cast<int32_t *>(inps);
@@ -1986,16 +1189,30 @@ index e1a70ac..0000000
 -        T2int8<__half>(__hdiv(__int2half_rn(output_temp), scale_area.y));
 -  }
 -}
--
--template <typename scalar_t>
--__global__ void ms_deformable_im2col_gpu_kernel(
+ 
+ template <typename scalar_t>
+ __global__ void ms_deformable_im2col_gpu_kernel(
 -    const int n, const scalar_t *data_value, const int32_t *data_spatial_shapes,
 -    const scalar_t *data_reference_points,
 -    const scalar_t *data_sampling_offsets, const scalar_t *data_attn_weight,
 -    const int spatial_size, const int num_heads, const int channels,
 -    const int num_levels, const int num_query, const int num_point,
 -    const int points_per_group, scalar_t *data_col) {
--  CUDA_1D_KERNEL_LOOP(index, n) {
++    const int n,
++    const scalar_t *data_value, 
++    const int *data_spatial_shapes,
++    const int *data_level_start_index, 
++    const scalar_t *data_sampling_loc,
++    const scalar_t *data_attn_weight, 
++    const int batch_size,
++    const int spatial_size, 
++    const int num_heads, 
++    const int channels,
++    const int num_levels, 
++    const int num_query, 
++    const int num_point,
++    scalar_t *data_col) {
+   CUDA_1D_KERNEL_LOOP(index, n) {
 -    const int temp = index;
 -    const int channel_index = index % channels;
 -    index /= channels;
@@ -2028,9 +1245,35 @@ index e1a70ac..0000000
 -
 -    for (int level_index = 0; level_index < num_levels; ++level_index) {
 -      const int spatial_h_ptr = level_index << 1;
--      const int spatial_h = data_spatial_shapes[spatial_h_ptr];
--      const int spatial_w = data_spatial_shapes[spatial_h_ptr + 1];
--
++    int _temp = index;
++    const int c_col = _temp % channels;
++    _temp /= channels;
++    const int sampling_index = _temp;
++    const int m_col = _temp % num_heads;
++    _temp /= num_heads;
++    _temp /= num_query;
++    const int b_col = _temp;
++
++    scalar_t *data_col_ptr = data_col + index;
++    int data_weight_ptr = sampling_index * num_levels * num_point;
++    int data_loc_w_ptr = data_weight_ptr << 1;
++    const int qid_stride = num_heads * channels;
++    const int data_value_ptr_init_offset = b_col * spatial_size * qid_stride;
++    scalar_t col = 0;
++    
++    for (int l_col = 0; l_col < num_levels; ++l_col) {
++      const int level_start_id = data_level_start_index[l_col];
++      const int spatial_h_ptr = l_col << 1;
+       const int spatial_h = data_spatial_shapes[spatial_h_ptr];
+       const int spatial_w = data_spatial_shapes[spatial_h_ptr + 1];
++      
++      const scalar_t *data_value_ptr =
++          data_value + (data_value_ptr_init_offset + level_start_id * qid_stride);
++      for (int p_col = 0; p_col < num_point; ++p_col) {
++        const scalar_t loc_w = data_sampling_loc[data_loc_w_ptr];
++        const scalar_t loc_h = data_sampling_loc[data_loc_w_ptr + 1];
++        const scalar_t weight = data_attn_weight[data_weight_ptr];
+ 
 -      for (int point_index = 0; point_index < num_point; ++point_index) {
 -        const int point_index_per_group = point_index % points_per_group;
 -        const scalar_t reference_point_x =
@@ -2049,31 +1292,52 @@ index e1a70ac..0000000
 -
 -        const scalar_t h_im = loc_h - 0.5f;
 -        const scalar_t w_im = loc_w - 0.5f;
--
--        if (h_im > -1 && w_im > -1 && h_im < spatial_h && w_im < spatial_w) {
++        const scalar_t h_im = loc_h * spatial_h - 0.5;
++        const scalar_t w_im = loc_w * spatial_w - 0.5;
+ 
+         if (h_im > -1 && w_im > -1 && h_im < spatial_h && w_im < spatial_w) {
 -          output += ms_deform_attn_im2col_bilinear(data_value_ptr, spatial_h,
 -                                                   spatial_w, num_heads,
 -                                                   channels, h_im, w_im) *
 -                    weight;
--        }
++          col += ms_deform_attn_im2col_bilinear(data_value_ptr, spatial_h,
++                                                spatial_w, num_heads, channels,
++                                                h_im, w_im, m_col, c_col) * weight;
+         }
 -
--        data_weight_ptr += 1;
+         data_weight_ptr += 1;
 -        data_offset_w_ptr += 2;
--      }
++        data_loc_w_ptr += 2;
+       }
 -      data_value_ptr += spatial_h * spatial_w * channels * num_heads;
--    }
+     }
 -    *data_output_ptr = output / sum_weight;
--  }
--}
--
--template <>
--__global__ void ms_deformable_im2col_gpu_kernel(
++    *data_col_ptr = col;
+   }
+ }
+ 
+ template <>
+ __global__ void ms_deformable_im2col_gpu_kernel(
 -    const int n, const __half *data_value, const int32_t *data_spatial_shapes,
 -    const __half *data_reference_points, const __half *data_sampling_offsets,
 -    const __half *data_attn_weight, const int spatial_size, const int num_heads,
 -    const int channels, const int num_levels, const int num_query,
 -    const int num_point, const int points_per_group, __half *data_col) {
--  CUDA_1D_KERNEL_LOOP(index, n) {
++    const int n, 
++    const __half *data_value, 
++    const int *data_spatial_shapes,
++    const int *data_level_start_index, 
++    const __half *data_sampling_loc,
++    const __half *data_attn_weight, 
++    const int batch_size, 
++    const int spatial_size,
++    const int num_heads, 
++    const int channels, 
++    const int num_levels,
++    const int num_query, 
++    const int num_point, 
++    __half *data_col) {
+   CUDA_1D_KERNEL_LOOP(index, n) {
 -    const int temp = index;
 -    const int channel_index = index % channels;
 -    index /= channels;
@@ -2106,8 +1370,27 @@ index e1a70ac..0000000
 -
 -    for (int level_index = 0; level_index < num_levels; ++level_index) {
 -      const int spatial_h_ptr = level_index << 1;
--      const int spatial_h = data_spatial_shapes[spatial_h_ptr];
--      const int spatial_w = data_spatial_shapes[spatial_h_ptr + 1];
++    int _temp = index;
++    const int c_col = _temp % channels;
++    _temp /= channels;
++    const int sampling_index = _temp;
++    const int m_col = _temp % num_heads;
++    _temp /= num_heads;
++    _temp /= num_query;
++    const int b_col = _temp;
++
++    __half *data_col_ptr = data_col + index;
++    int data_weight_ptr = sampling_index * num_levels * num_point;
++    int data_loc_w_ptr = data_weight_ptr << 1;
++    const int qid_stride = num_heads * channels;
++    const int data_value_ptr_init_offset = b_col * spatial_size * qid_stride;
++    __half col = 0;
++    
++    for (int l_col = 0; l_col < num_levels; ++l_col) {
++      const int level_start_id = data_level_start_index[l_col];
++      const int spatial_h_ptr = l_col << 1;
+       const int spatial_h = data_spatial_shapes[spatial_h_ptr];
+       const int spatial_w = data_spatial_shapes[spatial_h_ptr + 1];
 -
 -      for (int point_index = 0; point_index < num_point; ++point_index) {
 -        const int point_index_per_group = point_index % points_per_group;
@@ -2137,17 +1420,41 @@ index e1a70ac..0000000
 -                                                   spatial_w, num_heads,
 -                                                   channels, h_im, w_im) *
 -                    weight;
--        }
++      
++      const __half *data_value_ptr =
++          data_value + (data_value_ptr_init_offset + level_start_id * qid_stride);
++      for (int p_col = 0; p_col < num_point; ++p_col) {
++        const __half loc_w = data_sampling_loc[data_loc_w_ptr];
++        const __half loc_h = data_sampling_loc[data_loc_w_ptr + 1];
++        const __half weight = data_attn_weight[data_weight_ptr];
++
++        const __half h_im = __hsub(__hmul(loc_h, __int2half_rn(spatial_h)), __float2half(0.5f));
++        const __half w_im = __hsub(__hmul(loc_w, __int2half_rn(spatial_w)), __float2half(0.5f));
++
++        if (__hgt(h_im, __float2half(-1.f)) && __hgt(w_im, __float2half(-1.f)) &&
++            __hlt(h_im, __int2half_rn(spatial_h)) && __hlt(w_im, __int2half_rn(spatial_w))) {
++          // Pass data_value_ptr by reference
++          col += ms_deform_attn_im2col_bilinear(data_value_ptr,
++                                                   spatial_h, 
++                                                   spatial_w, 
++                                                   num_heads, 
++                                                   channels, 
++                                                   h_im, w_im, 
++                                                   m_col, c_col) * weight;
+         }
 -
--        data_weight_ptr += 1;
++        
+         data_weight_ptr += 1;
 -        data_offset_w_ptr += 2;
--      }
++        data_loc_w_ptr += 2;
+       }
 -      data_value_ptr += spatial_h * spatial_w * channels * num_heads;
--    }
+     }
 -    *data_output_ptr = __hdiv(output, sum_weight);
--  }
--}
--
++    *data_col_ptr = col;
+   }
+ }
+ 
 -__global__ void ms_deformable_im2col_gpu_kernel_h2(
 -    const int n, const __half2 *data_value, const int32_t *data_spatial_shapes,
 -    const __half2 *data_reference_points, const __half2 *data_sampling_offsets,
@@ -2200,7 +1507,7 @@ index e1a70ac..0000000
 -                    __floats2half2_rn(static_cast<float>(spatial_w),
 -                                      static_cast<float>(spatial_h)),
 -                    offset);
--
+ 
 -        const __half weight =
 -            hexp(data_attn_weight[data_weight_ptr] - max_weight);
 -        sum_weight += weight;
@@ -2481,52 +1788,91 @@ index e1a70ac..0000000
 -    *data_output_ptr = data_output;
 -  }
 -}
--
--template <typename scalar_t>
--void ms_deformable_im2col_cuda(const scalar_t *data_value,
+ 
+ template <typename scalar_t>
+ void ms_deformable_im2col_cuda(const scalar_t *data_value,
 -                               const int32_t *data_spatial_shapes,
 -                               const scalar_t *data_reference_points,
 -                               const scalar_t *data_sampling_offsets,
--                               const scalar_t *data_attn_weight,
++                               const int *data_spatial_shapes,
++                               const int *data_level_start_index,
++                               const scalar_t *data_sampling_loc,
+                                const scalar_t *data_attn_weight,
 -                               const int batch_size, const int spatial_size,
 -                               const int num_heads, const int channels,
 -                               const int num_levels, const int num_query,
 -                               const int num_point, const int points_per_group,
 -                               scalar_t *data_col, cudaStream_t stream) {
--  const int num_kernels = batch_size * num_query * num_heads * channels;
--  ms_deformable_im2col_gpu_kernel<scalar_t>
++                               const int batch_size, 
++                               const int spatial_size,
++                               const int num_heads,
++                               const int channels,
++                               const int num_levels, 
++                               const int num_query,
++                               const int num_point,
++                               scalar_t *data_col, 
++                               cudaStream_t stream) {
++  
+   const int num_kernels = batch_size * num_query * num_heads * channels;
++  const int num_threads = THREADS_PER_BLOCK;
++  // printf("%d", data_spatial_shapes);
++  cudaMemset((scalar_t *)data_col, 0, num_kernels * sizeof(scalar_t));
++  
+   ms_deformable_im2col_gpu_kernel<scalar_t>
 -      <<<GET_BLOCKS(num_kernels), THREADS_PER_BLOCK, 0, stream>>>(
 -          num_kernels, data_value, data_spatial_shapes, data_reference_points,
 -          data_sampling_offsets, data_attn_weight, spatial_size, num_heads,
 -          channels, num_levels, num_query, num_point, points_per_group,
--          data_col);
--  cudaError_t err = cudaGetLastError();
--  if (err != cudaSuccess) {
--    printf("error in ms_deformable_im2col_cuda: %s\n", cudaGetErrorString(err));
--  }
--}
--
--template <>
--void ms_deformable_im2col_cuda(
++      <<<GET_BLOCKS(num_kernels), num_threads, 0, stream>>>(
++          num_kernels, data_value, data_spatial_shapes, 
++          data_level_start_index, data_sampling_loc, 
++          data_attn_weight, batch_size, 
++          spatial_size, num_heads, channels, 
++          num_levels, num_query, num_point,
+           data_col);
+   cudaError_t err = cudaGetLastError();
+   if (err != cudaSuccess) {
+@@ -1127,128 +403,66 @@ void ms_deformable_im2col_cuda(const scalar_t *data_value,
+   }
+ }
+ 
++
+ template <>
+ void ms_deformable_im2col_cuda(
 -    const __half *data_value, const int32_t *data_spatial_shapes,
 -    const __half *data_reference_points, const __half *data_sampling_offsets,
--    const __half *data_attn_weight, const int batch_size,
--    const int spatial_size, const int num_heads, const int channels,
--    const int num_levels, const int num_query, const int num_point,
++    const __half *data_value, const int *data_spatial_shapes,
++    const int *data_level_start_index, const __half *data_sampling_loc,
+     const __half *data_attn_weight, const int batch_size,
+     const int spatial_size, const int num_heads, const int channels,
+     const int num_levels, const int num_query, const int num_point,
 -    const int points_per_group, __half *data_col, cudaStream_t stream) {
--  const int num_kernels = batch_size * num_query * num_heads * channels;
--  ms_deformable_im2col_gpu_kernel<__half>
++    __half *data_col, cudaStream_t stream) {
++  
+   const int num_kernels = batch_size * num_query * num_heads * channels;
++  const int num_threads = THREADS_PER_BLOCK;
++  
++  // Initialize output memory
++  cudaMemset(data_col, 0, num_kernels * sizeof(__half));
++
+   ms_deformable_im2col_gpu_kernel<__half>
 -      <<<GET_BLOCKS(num_kernels), THREADS_PER_BLOCK, 0, stream>>>(
 -          num_kernels, data_value, data_spatial_shapes, data_reference_points,
 -          data_sampling_offsets, data_attn_weight, spatial_size, num_heads,
 -          channels, num_levels, num_query, num_point, points_per_group,
--          data_col);
--  cudaError_t err = cudaGetLastError();
--  if (err != cudaSuccess) {
--    printf("error in ms_deformable_im2col_cuda: %s\n", cudaGetErrorString(err));
--  }
--}
--
++      <<<GET_BLOCKS(num_kernels), num_threads, 0, stream>>>(
++          num_kernels, data_value, data_spatial_shapes, 
++          data_level_start_index, data_sampling_loc, 
++          data_attn_weight, batch_size, spatial_size, 
++          num_heads, channels, num_levels, num_query, num_point,
+           data_col);
++  
+   cudaError_t err = cudaGetLastError();
+   if (err != cudaSuccess) {
+     printf("error in ms_deformable_im2col_cuda: %s\n", cudaGetErrorString(err));
+   }
+ }
+ 
 -void ms_deformable_im2col_cuda_h2(
 -    const __half2 *data_value, const int32_t *data_spatial_shapes,
 -    const __half2 *data_reference_points, const __half2 *data_sampling_offsets,
@@ -2595,8 +1941,8 @@ index e1a70ac..0000000
 -    printf("error in ms_deformable_im2col_cuda: %s\n", cudaGetErrorString(err));
 -  }
 -}
--
--template void ms_deformable_im2col_cuda<float>(
+ 
+ template void ms_deformable_im2col_cuda<float>(
 -    const float *data_value, const int32_t *data_spatial_shapes,
 -    const float *data_reference_points, const float *data_sampling_offsets,
 -    const float *data_attn_weight, const int batch_size, const int spatial_size,
@@ -2620,8 +1966,21 @@ index e1a70ac..0000000
 -    const int spatial_size, const int num_heads, int channels,
 -    const int num_levels, const int num_query, const int num_point,
 -    const int points_per_group, int8_4 *data_col, float scale_out,
--    cudaStream_t stream);
--
++    const float *data_value, 
++    const int *data_spatial_shapes,
++    const int *data_level_start_index, 
++    const float *data_sampling_loc,
++    const float *data_attn_weight, 
++    const int batch_size, 
++    const int spatial_size,
++    const int num_heads, 
++    const int channels, 
++    const int num_levels,
++    const int num_query, 
++    const int num_point,
++    float *data_col, 
+     cudaStream_t stream);
+ 
 -template void ms_deformable_im2col_cuda_int8<__half2>(
 -    const int8_4 *data_value, float scale_value,
 -    const int32_t *data_spatial_shapes, const __half2 *data_reference_points,
@@ -2630,7 +1989,22 @@ index e1a70ac..0000000
 -    const int spatial_size, const int num_heads, int channels,
 -    const int num_levels, const int num_query, const int num_point,
 -    const int points_per_group, int8_4 *data_col, float scale_out,
--    cudaStream_t stream);
++
++template void ms_deformable_im2col_cuda<__half>(
++    const __half *data_value, 
++    const int *data_spatial_shapes,
++    const int *data_level_start_index, 
++    const __half *data_sampling_loc,
++    const __half *data_attn_weight, 
++    const int batch_size,
++    const int spatial_size, 
++    const int num_heads, 
++    const int channels,
++    const int num_levels, 
++    const int num_query, 
++    const int num_point,
++    __half *data_col, 
+     cudaStream_t stream);
 diff --git a/TensorRT/plugin/multi_scale_deformable_attn/multiScaleDeformableAttnKernel.h b/TensorRT/plugin/multi_scale_deformable_attn/multiScaleDeformableAttnKernel.h
 deleted file mode 100644
 index 78785d1..0000000
@@ -2677,231 +2051,11 @@ index 78785d1..0000000
 -    cudaStream_t stream);
 -
 -#endif // TENSORRT_OPS_MULTISCALEDEFORMABLEATTNKERNEL_H
-diff --git a/TensorRT/plugin/bev_pool_v2/bevPoolPlugin.cpp b/TensorRT/plugins/bevPoolPlugin.cpp
-similarity index 73%
-rename from TensorRT/plugin/bev_pool_v2/bevPoolPlugin.cpp
-rename to TensorRT/plugins/bevPoolPlugin.cpp
-index 3aae089..bdec92f 100644
---- a/TensorRT/plugin/bev_pool_v2/bevPoolPlugin.cpp
-+++ b/TensorRT/plugins/bevPoolPlugin.cpp
-@@ -19,6 +19,7 @@ namespace {
- constexpr char const *BP_PLUGIN_VERSION{"1"};
- constexpr char const *BP_PLUGIN_NAME{"BEVPoolV2TRT"};
- constexpr char const *BP_PLUGIN_NAME2{"BEVPoolV2TRT2"};
-+constexpr int32_t BP_PLUGIN_SERIALIZATION_VERSION = 1;
- } // namespace
- 
- PluginFieldCollection BEVPoolPluginCreator::mFC{};
-@@ -33,6 +34,14 @@ BEVPoolPlugin::BEVPoolPlugin(int outWidth, int outHeight, bool use_h2)
- BEVPoolPlugin::BEVPoolPlugin(const void *serialData, size_t serialLength,
-                              bool use_h2)
-     : use_h2(use_h2) {
-+  // Deserialize with added version control
-+  int32_t version = 0;
-+  deserialize_value(&serialData, &serialLength, &version);
-+  
-+  if (version != BP_PLUGIN_SERIALIZATION_VERSION) {
-+    throw std::runtime_error("BEVPoolPlugin: Unsupported serialization version");
-+  }
-+
-   deserialize_value(&serialData, &serialLength, &mOutWidth);
-   deserialize_value(&serialData, &serialLength, &mOutHeight);
- }
-@@ -45,75 +54,85 @@ DimsExprs BEVPoolPlugin::getOutputDimensions(
-     int32_t outputIndex, const nvinfer1::DimsExprs *inputs, int32_t nbInputs,
-     nvinfer1::IExprBuilder &exprBuilder) noexcept {
-   nvinfer1::DimsExprs ret;
--  ret.nbDims = 4;
-+  ret.nbDims = 5;
-   ret.d[0] = exprBuilder.constant(1);
--  ret.d[1] = exprBuilder.constant(mOutHeight);
--  ret.d[2] = exprBuilder.constant(mOutWidth);
--  ret.d[3] = inputs[1].d[3];
--  return ret;
-+  ret.d[1] = exprBuilder.constant(8);
-+  ret.d[2] = exprBuilder.constant(mOutHeight); 
-+  ret.d[3] = exprBuilder.constant(mOutWidth);
-+  ret.d[4] = inputs[1].d[4];
-+  return ret; 
- }
- 
- int32_t BEVPoolPlugin::initialize() noexcept { return 0; }
- 
- void BEVPoolPlugin::terminate() noexcept {}
- 
--size_t
--BEVPoolPlugin::getWorkspaceSize(const nvinfer1::PluginTensorDesc *inputs,
--                                int32_t nbInputs,
--                                const nvinfer1::PluginTensorDesc *outputs,
--                                int32_t nbOutputs) const noexcept {
-+size_t BEVPoolPlugin::getWorkspaceSize(
-+    const nvinfer1::PluginTensorDesc *inputs, int32_t nbInputs,
-+    const nvinfer1::PluginTensorDesc *outputs, int32_t nbOutputs) const noexcept {
-   return 0;
- }
- 
--int32_t BEVPoolPlugin::enqueue(const nvinfer1::PluginTensorDesc *inputDesc,
--                               const nvinfer1::PluginTensorDesc *outputDesc,
--                               const void *const *inputs, void *const *outputs,
--                               void *workspace, cudaStream_t stream) noexcept {
--  nvinfer1::Dims feat_dims = inputDesc[1].dims;     // bnhwc
--  nvinfer1::Dims interval_dims = inputDesc[5].dims; // n
--  nvinfer1::Dims out_dims = outputDesc[0].dims;     // bhwc
-+int32_t BEVPoolPlugin::enqueue(
-+    const nvinfer1::PluginTensorDesc *inputDesc,
-+    const nvinfer1::PluginTensorDesc *outputDesc,
-+    const void *const *inputs, void *const *outputs, void *workspace,
-+    cudaStream_t stream) noexcept {
-+  nvinfer1::Dims feat_dims = inputDesc[1].dims;
-+  nvinfer1::Dims interval_dims = inputDesc[5].dims;
-+  nvinfer1::Dims out_dims = outputDesc[0].dims;
-   auto data_type = inputDesc[0].type;
--  int num_points =
--      out_dims.d[0] * out_dims.d[1] * out_dims.d[2] * out_dims.d[3];
--  switch (data_type) {
--  case nvinfer1::DataType::kFLOAT:
--    bev_pool_v2(feat_dims.d[3], interval_dims.d[0], num_points,
--                (float *)inputs[0], (float *)inputs[1], (int *)inputs[2],
--                (int *)inputs[3], (int *)inputs[4], (int *)inputs[5],
--                (int *)inputs[6], (float *)outputs[0], stream);
--    break;
--  case nvinfer1::DataType::kHALF:
--    if (use_h2) {
--      bev_pool_v2_h2(feat_dims.d[3], interval_dims.d[0], num_points,
--                     (__half *)inputs[0], (__half2 *)inputs[1],
--                     (int *)inputs[2], (int *)inputs[3], (int *)inputs[4],
--                     (int *)inputs[5], (int *)inputs[6], (__half2 *)outputs[0],
--                     stream);
--    } else {
--      bev_pool_v2(feat_dims.d[3], interval_dims.d[0], num_points,
--                  (__half *)inputs[0], (__half *)inputs[1], (int *)inputs[2],
-+
-+  int num_points = out_dims.d[0] * out_dims.d[1] * out_dims.d[2] * out_dims.d[3] * out_dims.d[4];
-+
-+  try {
-+    switch (data_type) {
-+    case nvinfer1::DataType::kFLOAT:
-+      bev_pool_v2(feat_dims.d[4], interval_dims.d[0], num_points,
-+                  (float *)inputs[0], (float *)inputs[1], (int *)inputs[2],
-                   (int *)inputs[3], (int *)inputs[4], (int *)inputs[5],
--                  (int *)inputs[6], (__half *)outputs[0], stream);
-+                  (int *)inputs[6], (float *)outputs[0], stream);
-+      break;
-+    case nvinfer1::DataType::kHALF:
-+      if (use_h2) {
-+        bev_pool_v2_h2(feat_dims.d[4], interval_dims.d[0], num_points,
-+                       (__half *)inputs[0], (__half2 *)inputs[1],
-+                       (int *)inputs[2], (int *)inputs[3], (int *)inputs[4],
-+                       (int *)inputs[5], (int *)inputs[6], (__half2 *)outputs[0],
-+                       stream);
-+      } else {
-+        bev_pool_v2(feat_dims.d[4], interval_dims.d[0], num_points,
-+                    (__half *)inputs[0], (__half *)inputs[1], (int *)inputs[2],
-+                    (int *)inputs[3], (int *)inputs[4], (int *)inputs[5],
-+                    (int *)inputs[6], (__half *)outputs[0], stream);
-+      }
-+      break;
-+    case nvinfer1::DataType::kINT8:
-+      bev_pool_v2_int8(feat_dims.d[4], interval_dims.d[0], num_points,
-+                       (int8_t *)inputs[0], inputDesc[0].scale, 
-+                       (int8_4 *)inputs[1], inputDesc[1].scale,
-+                       (int *)inputs[2], (int *)inputs[3], (int *)inputs[4], 
-+                       (int *)inputs[5], (int *)inputs[6], (int8_4 *)outputs[0],
-+                       outputDesc[0].scale, stream);
-+      break;
-+    default:
-+      return 1;
-     }
--    break;
--  case nvinfer1::DataType::kINT8:
--    bev_pool_v2_int8(
--        feat_dims.d[3], interval_dims.d[0], num_points, (int8_t *)inputs[0],
--        inputDesc[0].scale, (int8_4 *)inputs[1], inputDesc[1].scale,
--        (int *)inputs[2], (int *)inputs[3], (int *)inputs[4], (int *)inputs[5],
--        (int *)inputs[6], (int8_4 *)outputs[0], outputDesc[0].scale, stream);
--    break;
--  default:
-+  } catch (const std::exception& e) {
-+    caughtError(e);
-     return 1;
-   }
-   return 0;
- }
- 
- size_t BEVPoolPlugin::getSerializationSize() const noexcept {
--  return serialized_size(mOutWidth) + serialized_size(mOutHeight);
-+  return serialized_size(BP_PLUGIN_SERIALIZATION_VERSION) +
-+         serialized_size(mOutWidth) + 
-+         serialized_size(mOutHeight);
- }
- 
- void BEVPoolPlugin::serialize(void *buffer) const noexcept {
-+  serialize_value(&buffer, BP_PLUGIN_SERIALIZATION_VERSION); // version control
-   serialize_value(&buffer, mOutWidth);
-   serialize_value(&buffer, mOutHeight);
- }
-@@ -157,6 +176,10 @@ IPluginV2DynamicExt *BEVPoolPlugin::clone() const noexcept {
-   return nullptr;
- }
- 
-+// Remaining methods such as setPluginNamespace, getOutputDataType, 
-+// configurePlugin, etc. remain similar with consistent error handling as needed.
-+
-+
- void BEVPoolPlugin::setPluginNamespace(const char *pluginNamespace) noexcept {
-   mPluginNamespace = pluginNamespace;
- }
-diff --git a/TensorRT/plugin/grid_sampler/gridSamplerPlugin.cpp b/TensorRT/plugins/gridSamplerPlugin.cpp
-similarity index 99%
-rename from TensorRT/plugin/grid_sampler/gridSamplerPlugin.cpp
-rename to TensorRT/plugins/gridSamplerPlugin.cpp
-index cc52952..0685125 100644
---- a/TensorRT/plugin/grid_sampler/gridSamplerPlugin.cpp
-+++ b/TensorRT/plugins/gridSamplerPlugin.cpp
-@@ -121,6 +121,7 @@ int32_t GridSamplerPlugin::enqueue(const nvinfer1::PluginTensorDesc *inputDesc,
-   auto data_type = inputDesc[0].type;
-   ASSERT(data_type == DataType::kFLOAT || data_type == DataType::kHALF ||
-          data_type == DataType::kINT8)
-+  
- 
-   switch (data_type) {
-   case DataType::kFLOAT:
-@@ -130,12 +131,15 @@ int32_t GridSamplerPlugin::enqueue(const nvinfer1::PluginTensorDesc *inputDesc,
-                        mMode, mPaddingMode, mAlignCorners, stream);
-     break;
-   case DataType::kHALF:
-+    printf("Entered case DataType::kHALF\n");
-     if (use_h2) {
-+      printf("Using __half2 for grid_sample\n");
-       grid_sample<__half2>(
-           (__half2 *)outputs[0], (__half2 *)inputs[0], (__half2 *)inputs[1],
-           &(output_dims.d[0]), &(input_dims.d[0]), &(grid_dims.d[0]),
-           input_dims.nbDims, mMode, mPaddingMode, mAlignCorners, stream);
-     } else {
-+      printf("Using __half for grid_sample\n");
-       grid_sample<__half>(
-           (__half *)outputs[0], (__half *)inputs[0], (__half *)inputs[1],
-           &(output_dims.d[0]), &(input_dims.d[0]), &(grid_dims.d[0]),
-diff --git a/TensorRT/plugin/inverse/inversePlugin.cpp b/TensorRT/plugins/inversePlugin.cpp
-similarity index 100%
-rename from TensorRT/plugin/inverse/inversePlugin.cpp
-rename to TensorRT/plugins/inversePlugin.cpp
-diff --git a/TensorRT/plugin/modulated_deformable_conv2d/modulatedDeformableConv2dPlugin.cpp b/TensorRT/plugins/modulatedDeformableConv2dPlugin.cpp
-similarity index 100%
-rename from TensorRT/plugin/modulated_deformable_conv2d/modulatedDeformableConv2dPlugin.cpp
-rename to TensorRT/plugins/modulatedDeformableConv2dPlugin.cpp
-diff --git a/TensorRT/plugin/multi_head_attn/multiHeadAttnPlugin.cpp b/TensorRT/plugins/multiHeadAttnPlugin.cpp
-similarity index 100%
-rename from TensorRT/plugin/multi_head_attn/multiHeadAttnPlugin.cpp
-rename to TensorRT/plugins/multiHeadAttnPlugin.cpp
-diff --git a/TensorRT/plugin/multi_scale_deformable_attn/multiScaleDeformableAttnPlugin.cpp b/TensorRT/plugins/multiScaleDeformableAttnPlugin.cpp
-similarity index 77%
-rename from TensorRT/plugin/multi_scale_deformable_attn/multiScaleDeformableAttnPlugin.cpp
-rename to TensorRT/plugins/multiScaleDeformableAttnPlugin.cpp
-index 67886e0..871691e 100644
+diff --git a/TensorRT/plugin/multi_scale_deformable_attn/multiScaleDeformableAttnPlugin.cpp b/TensorRT/plugin/multi_scale_deformable_attn/multiScaleDeformableAttnPlugin.cpp
+index 67886e0..d8434e6 100644
 --- a/TensorRT/plugin/multi_scale_deformable_attn/multiScaleDeformableAttnPlugin.cpp
-+++ b/TensorRT/plugins/multiScaleDeformableAttnPlugin.cpp
-@@ -49,11 +49,14 @@ DimsExprs MultiScaleDeformableAttnPlugin::getOutputDimensions(
++++ b/TensorRT/plugin/multi_scale_deformable_attn/multiScaleDeformableAttnPlugin.cpp
+@@ -49,11 +49,12 @@ DimsExprs MultiScaleDeformableAttnPlugin::getOutputDimensions(
      int32_t outputIndex, const nvinfer1::DimsExprs *inputs, int32_t nbInputs,
      nvinfer1::IExprBuilder &exprBuilder) noexcept {
    DimsExprs outputDim;
@@ -2914,12 +2068,10 @@ index 67886e0..871691e 100644
 +  outputDim.d[2] = exprBuilder.operation(
 +    nvinfer1::DimensionOperation::kPROD, *inputs[0].d[2], *inputs[0].d[3]);
 +
-+  // outputDim.d[2] = inputs[0].d[2];
-+  // outputDim.d[3] = inputs[0].d[3];
    return outputDim;
  }
  
-@@ -72,67 +75,60 @@ int32_t MultiScaleDeformableAttnPlugin::enqueue(
+@@ -72,66 +73,42 @@ int32_t MultiScaleDeformableAttnPlugin::enqueue(
      const nvinfer1::PluginTensorDesc *inputDesc,
      const nvinfer1::PluginTensorDesc *outputDesc, const void *const *inputs,
      void *const *outputs, void *workspace, cudaStream_t stream) noexcept {
@@ -3005,27 +2157,9 @@ index 67886e0..871691e 100644
 -    }
 +          (__half *)outputs[0], stream);
      break;
-+  // case DataType::kINT8:
-+  //   if (data_type_rp == DataType::kHALF) {
-+  //     ms_deformable_im2col_cuda_int8<__half2>(
-+  //         (int8_4 *)inputs[0], scale_value, (int32_t *)inputs[1],
-+  //         (__half2 *)inputs[2], (int8_4 *)inputs[3], scale_offset,
-+  //         (int8_4 *)inputs[4], scale_weight, batch, spatial_size, num_heads,
-+  //         channels, num_levels, num_query, num_point, points_per_group,
-+  //         (int8_4 *)outputs[0], scale_out, stream);
-+  //   } else {
-+  //     ms_deformable_im2col_cuda_int8<float>(
-+  //         (int8_4 *)inputs[0], scale_value, (int32_t *)inputs[1],
-+  //         (float *)inputs[2], (int8_4 *)inputs[3], scale_offset,
-+  //         (int8_4 *)inputs[4], scale_weight, batch, spatial_size, num_heads,
-+  //         channels, num_levels, num_query, num_point, points_per_group,
-+  //         (int8_4 *)outputs[0], scale_out, stream);
-+  //   }
-+  //   break;
    default:
      return 1;
-   }
-@@ -166,13 +162,7 @@ bool MultiScaleDeformableAttnPlugin::supportsFormatCombination(
+@@ -166,13 +143,7 @@ bool MultiScaleDeformableAttnPlugin::supportsFormatCombination(
      return inOut[pos].type == nvinfer1::DataType::kINT32 &&
             inOut[pos].format == nvinfer1::TensorFormat::kLINEAR;
    case 2:
@@ -3040,10 +2174,6 @@ index 67886e0..871691e 100644
             inOut[pos].format == nvinfer1::TensorFormat::kLINEAR;
    case 3:
      return inOut[pos].type == inOut[0].type &&
-diff --git a/TensorRT/plugin/rotate/rotatePlugin.cpp b/TensorRT/plugins/rotatePlugin.cpp
-similarity index 100%
-rename from TensorRT/plugin/rotate/rotatePlugin.cpp
-rename to TensorRT/plugins/rotatePlugin.cpp
 -- 
 2.25.1
 

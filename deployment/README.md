@@ -127,20 +127,25 @@ Use the [flashing procedures](https://developer.nvidia.com/drive/downloads) to p
    cd /path/to/your/workspace/
    chmod +x create_trt_engine.sh
 
-   # Example 1: Standard engine creation
-   ./create_trt_engine.sh --trt_plugin_path /path/to/fb-occ_trt_plugin_aarch64.so
+   # FP32 engine creation 
+   ./create_trt_engine.sh \
+      --trt_path /usr/src/tensorrt/ \
+      --data_dir /path/to/trt_inputs \
+      --onnx /path/to/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.onnx \
+      --trt_plugin_path /path/to/fb-occ_trt_plugin_aarch64.so \
+      --trt_engine_path /path/to/output/fb-occ_trt_engine.plan
 
-   # Example 2: Engine creation with FP16 precision
-   ./create_trt_engine.sh --trt_plugin_path /path/to/fb-occ_trt_plugin_aarch64.so --fp16
-
-   # Example 3: Custom engine path
-   ./create_trt_engine.sh --trt_plugin_path /path/to/fb-occ_trt_plugin_aarch64.so --trt_engine_path /path/to/custom_engine_path
-
-   # Example 4: Custom engine path and custom input data path
-   ./create_trt_engine.sh --trt_plugin_path /path/to/fb-occ_trt_plugin_aarch64.so --trt_engine_path /path/to/custom_engine_path --data_dir /path/to/trt_inputs 
+   # FP16 engine creation 
+   ./create_trt_engine.sh \
+      --trt_path /usr/src/tensorrt/ \
+      --data_dir /path/to/trt_inputs \
+      --onnx /path/to/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.onnx \
+      --trt_plugin_path /path/to/fb-occ_trt_plugin_aarch64.so \
+      --trt_engine_path /path/to/output/fb-occ_trt_engine_fp16.plan \
+      --fp16
    ```
 
-   Upon successful execution, the TensorRT engine will be saved at the specified `<path_to_TensorRT_engine>`.
+   Upon successful execution, the TensorRT engine will be saved at the specified `/path/to/output/trt_engine.trt`.
 
    #### **Notes:**
 

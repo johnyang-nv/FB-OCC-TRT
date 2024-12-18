@@ -1,13 +1,12 @@
-From 67cd8dc107a12fb229d256e4e8c3199e960a080e Mon Sep 17 00:00:00 2001
+From 5f8f3f4cdf773d1e4c72a2c9fd91da4ffab91f18 Mon Sep 17 00:00:00 2001
 From: "John Yang (SW-TEGRA)" <johnyang@nvidia.com>
-Date: Mon, 16 Dec 2024 12:45:33 -0800
+Date: Tue, 17 Dec 2024 15:39:52 -0800
 Subject: [PATCH] fb-occ_trt_plugin
 
 ---
- TensorRT/.gitignore                           |    1 -
  TensorRT/CMakeLists.txt                       |   37 -
  TensorRT/Makefile                             |   25 +
- TensorRT/Makefile.config                      |  216 +++
+ TensorRT/Makefile.config                      |  207 +++
  TensorRT/README.md                            |  277 ----
  TensorRT/build/.gitignore                     |    2 -
  TensorRT/cudaComputeVersion.cu                |    9 -
@@ -52,8 +51,7 @@ Subject: [PATCH] fb-occ_trt_plugin
  .../multiHeadAttnPlugin.cpp                   |    0
  .../multiScaleDeformableAttnPlugin.cpp        |  100 +-
  .../rotate => plugins}/rotatePlugin.cpp       |    0
- 48 files changed, 861 insertions(+), 1734 deletions(-)
- delete mode 100644 TensorRT/.gitignore
+ 47 files changed, 852 insertions(+), 1733 deletions(-)
  delete mode 100644 TensorRT/CMakeLists.txt
  create mode 100644 TensorRT/Makefile
  create mode 100644 TensorRT/Makefile.config
@@ -102,13 +100,6 @@ Subject: [PATCH] fb-occ_trt_plugin
  rename TensorRT/{plugin/multi_scale_deformable_attn => plugins}/multiScaleDeformableAttnPlugin.cpp (77%)
  rename TensorRT/{plugin/rotate => plugins}/rotatePlugin.cpp (100%)
 
-diff --git a/TensorRT/.gitignore b/TensorRT/.gitignore
-deleted file mode 100644
-index 485dee6..0000000
---- a/TensorRT/.gitignore
-+++ /dev/null
-@@ -1 +0,0 @@
--.idea
 diff --git a/TensorRT/CMakeLists.txt b/TensorRT/CMakeLists.txt
 deleted file mode 100644
 index 8ff6da2..0000000
@@ -185,10 +176,10 @@ index 0000000..b6fd841
 +include $(MAKEFILE)
 diff --git a/TensorRT/Makefile.config b/TensorRT/Makefile.config
 new file mode 100644
-index 0000000..6e57b3a
+index 0000000..358b03d
 --- /dev/null
 +++ b/TensorRT/Makefile.config
-@@ -0,0 +1,216 @@
+@@ -0,0 +1,207 @@
 +# SPDX-FileCopyrightText: Copyright (c) 2023-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 +# SPDX-License-Identifier: LicenseRef-NvidiaProprietary
 +#
@@ -205,7 +196,6 @@ index 0000000..6e57b3a
 +EXTRA_FILES =
 +
 +USE_QCC ?= 1
-+SAFETY_RUNTIME ?= 0
 +CUDA ?= cuda-11.4
 +TARGET ?= $(shell uname -m)
 +
@@ -283,13 +273,10 @@ index 0000000..6e57b3a
 +  if [ ! -d $1 ]; then mkdir -p $1; fi
 +endef
 +
-+ifeq ($(SAFETY_RUNTIME), 1)
-+  CUDART_LIB = -lcudart_static
-+  NVINFER_LIB = -lnvinfer_safe
-+else
-+  CUDART_LIB = -lcudart
-+  NVINFER_LIB = -lnvinfer -lnvinfer_safe -lnvinfer_plugin -lnvinfer_checker
-+endif
++
++CUDART_LIB = -lcudart
++NVINFER_LIB = -lnvinfer -lnvinfer_plugin 
++
 +
 +######################
 +INCPATHS=
@@ -330,11 +317,6 @@ index 0000000..6e57b3a
 +CFLAGSD = $(COMMON_FLAGS) -fPIC -g
 +LFLAGS = $(COMMON_LD_FLAGS) -shared
 +LFLAGSD = $(COMMON_LD_FLAGS) -shared
-+
-+ifeq ($(SAFETY_RUNTIME), 1)
-+  CFLAGS += -DSAFETY_RUNTIME
-+  CFLAGSD += -DSAFETY_RUNTIME
-+endif
 +
 +OBJS    =$(patsubst %.cpp, $(OBJDIR)/%.o, $(wildcard $(SRC) $(EXTRA_FILE)))
 +DOBJS   =$(patsubst %.cpp, $(DOBJDIR)/%.o, $(wildcard $(SRC) $(EXTRA_FILE)))

@@ -49,7 +49,7 @@ This section provides the workflow to deploy  **FB-OCC** on the NVIDIA DRIVE pla
 
    FB-OCC uses operations that are not natively supported by TensorRT, including `GridSample3D`, `BevPoolv2`, and `Multi-Scale Deformable Attention`. Those operations will be compiled as TensorRT plugins.
    
-   ### Steps to Prepare and Build TensorRT Plugins
+   ### Steps to Cross-Compile TensorRT Plugins
 
    1. **Clone and Modify BEVFormer_tensorrt**
 
@@ -73,29 +73,26 @@ This section provides the workflow to deploy  **FB-OCC** on the NVIDIA DRIVE pla
 
 2. **Set Up the Environment**
 
-   This model is to be deployed on NVIDIA DRIVE Orin with TensorRT 8.6.13.3. To get access to this version of TensorRT, please refer to details on the [NVIDIA DRIVE site](https://developer.nvidia.com/drive/downloads).    
+   We recommend using the NVIDIA DRIVE docker image `drive-agx-orin-linux-aarch64-sdk-build-x86:6.0.10.0-0009`, as a pre-configured environment for cross-compilation.
 
-   First, download the `nv-tensorrt-repo-ubuntu2004-cuda11.4-trt8.6.13.3-d6l-cross-ga-20240202_1-1_amd64.deb` debian package to your workspace `/path/to/BEVFormer_tensorrt/` from [Poduct Information Delivery](https://apps.nvidia.com/PID/ContentGroup/Detail/1948?FromLocation=CL) with your NVONLINE account. 
-
-   Launch the Drive OS Linux Docker container with `BEVFormer_tensorrt` mounted::
+   Launch the docker with `BEVFormer_tensorrt` mounted:
    ```bash
    docker run --gpus all -it --network=host --rm \
      -v /your/path/to/BEVFormer_tensorrt/:/BEVFormer_tensorrt \
      nvcr.io/drive/driveos-sdk/drive-agx-orin-linux-aarch64-sdk-build-x86:6.0.10.0-0009
    ```
+   Join the [DRIVE AGX SDK Developer Program](https://developer.nvidia.com/drive/agx-sdk-program) for access to the docker image.
+
 3. **Install Required Components**
 
    Inside the Docker container, execute the following commands to install the necessary components and build the plugins:   
    ```bash
-   dpkg -i /BEVFormer_tensorrt/nv-tensorrt-repo-ubuntu2004-cuda11.4-trt8.6.13.3-d6l-cross-ga-20240202_1-1_amd64.deb
-   apt install tensorrt-safe-cross-aarch64
+   apt install tensorrt-cross-aarch64
    cd /BEVFormer_tensorrt/TensorRT/
    make TARGET=aarch64
    ```
 
-   After the compilation is finished, the plugin file will be generated at the following location:: `/drive/bin/aarch64/fb-occ_trt_plugin_aarch64.so`.
-
-   Move the plugin file to your mounted directory for use in the subsequent steps:
+   After the compilation is finished, move the plugin file to your mounted directory for use in the subsequent steps:
    ```bash
    mv /drive/bin/aarch64/fb-occ_trt_plugin_aarch64.so /BEVFormer_tensorrt/
    ```
@@ -153,14 +150,13 @@ Use the [flashing procedures](https://developer.nvidia.com/drive/downloads) to p
 
    1. **Preprocess Test Data on x86 Host** 
    
-      Prepare all test data on the x86 host by preprocessing it into `.dat` or `.bin` files. Define `--save_dir` as the path to save the preprocessed data.
+      Prepare all test data on the x86 host by preprocessing it into `.dat` files. Define `--save_dir` as the path to save the preprocessed data.
 
       ```bash
       cd /path/to/FB-BEV/
       python deployment/eval_orin/preprocess_samples.py \
          occupancy_configs/fb_occ/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.py \
          --save_dir /path/to/preprocessed_data
-
       ```
 
    2. **Perform TensorRT Inference on DRIVE Orin**
@@ -170,8 +166,8 @@ Use the [flashing procedures](https://developer.nvidia.com/drive/downloads) to p
       Then, run the shell script to perform TensorRT inference on all preprocessed data within the Docker container. The script saves the outputs back into the `--data_dir` directory for further evaluation.
 
       ```bash
-      cd /path/to/FB-BEV/deployment/
-      ./eval_orin/run_data_trt.sh \
+      cd /path/to/FB-BEV/
+      ./deployment/eval_orin/run_data_trt.sh \
          --data_dir /path/to/preprocessed_data \
          --trt_plugin_path /path/to/fb-occ_trt_plugin_aarch64.so \
          --trt_engine_path /path/to/fbocc-r50-cbgs_depth_16f_16x4_20e_trt_orin.engine
@@ -190,5 +186,4 @@ Use the [flashing procedures](https://developer.nvidia.com/drive/downloads) to p
       ckpts/fbocc-r50-cbgs_depth_16f_16x4_20e.pth \
       --target_eval \
       --data_dir /path/to/preprocessed_data
-
       ```

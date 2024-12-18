@@ -145,7 +145,7 @@ Use the [flashing procedures](https://developer.nvidia.com/drive/downloads) to p
       --fp16
    ```
 
-   Upon successful execution, the TensorRT engine will be saved at the specified `/path/to/output/trt_engine.trt`.
+   Upon successful execution, the TensorRT engine will be saved at the specified `/path/to/output/fb-occ_trt_engine.plan`.
 
    #### **Notes:**
 

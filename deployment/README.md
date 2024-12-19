@@ -107,7 +107,7 @@ This section provides the workflow to deploy  **FB-OCC** on the NVIDIA DRIVE pla
    
 ## Build TensorRT Engine on DRIVE Orin
 
-To create the TensorRT engine, confirm that the target platform (e.g., NVIDIA DRIVE Orin) is set up with NVIDIA DRIVE OS. 
+To create the TensorRT engine, confirm that the DRIVE Orin platform is set up with NVIDIA DRIVE OS. 
 Use the [flashing procedures](https://developer.nvidia.com/drive/downloads) to prepare the target system.
 
 

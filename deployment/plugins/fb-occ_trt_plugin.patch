@@ -1,317 +1,93 @@
-From 433180ab8e2f8003a7f8df7c7a6033abfae8ef12 Mon Sep 17 00:00:00 2001
+From e6f126b43101457076b17233ef1c98dbb3645c62 Mon Sep 17 00:00:00 2001
 From: "John Yang (SW-TEGRA)" <johnyang@nvidia.com>
-Date: Wed, 18 Dec 2024 13:44:48 -0800
+Date: Wed, 18 Dec 2024 19:42:47 -0800
 Subject: [PATCH] fb-occ_trt_plugin
 
 ---
- TensorRT/Makefile                             |   25 +
- TensorRT/Makefile.config                      |  208 +++
- .../bev_pool_v2 => include}/bevPoolKernel.h   |    5 +-
- .../bev_pool_v2 => include}/bevPoolPlugin.h   |    2 +-
- .../{common => include}/checkMacrosPlugin.cpp |    0
- .../{common => include}/checkMacrosPlugin.h   |    0
- TensorRT/{common => include}/cuda_helper.cu   |    0
- TensorRT/{common => include}/cuda_helper.h    |    0
- TensorRT/{common => include}/cuda_int8.h      |    0
- .../gridSamplerKernel.h                       |    0
- .../gridSamplerPlugin.h                       |    0
- TensorRT/{common => include}/helper.h         |    0
- .../inverse => include}/inverseKernel.h       |    0
- .../inverse => include}/inversePlugin.h       |    0
- .../modulatedDeformableConv2dKernel.h         |    0
- .../modulatedDeformableConv2dPlugin.h         |    0
- .../multiHeadAttnKernel.h                     |    0
- .../multiHeadAttnPlugin.h                     |    0
- .../multiHeadFlashAttnKernel.h                |    0
- .../include/multiScaleDeformableAttnKernel.h  |   30 +
- .../multiScaleDeformableAttnPlugin.h          |    2 +-
- .../{plugin/rotate => include}/rotateKernel.h |    0
- .../{plugin/rotate => include}/rotatePlugin.h |    0
- TensorRT/{common => include}/serialize.h      |    0
+ TensorRT/Makefile                             |   61 +
+ TensorRT/plugin/bev_pool_v2/bevPoolKernel.h   |    5 +-
  TensorRT/plugin/bev_pool_v2/bevPoolPlugin.cpp |  117 +-
- .../plugin/grid_sampler/gridSamplerPlugin.cpp |    4 +
+ TensorRT/plugin/bev_pool_v2/bevPoolPlugin.h   |    2 +-
+ .../plugin/grid_sampler/gridSamplerPlugin.cpp |    1 +
  .../multiScaleDeformableAttnKernel.cu         | 1220 +++--------------
- .../multiScaleDeformableAttnKernel.h          |   40 -
+ .../multiScaleDeformableAttnKernel.h          |   40 +-
  .../multiScaleDeformableAttnPlugin.cpp        |   81 +-
- 29 files changed, 583 insertions(+), 1151 deletions(-)
- create mode 100755 TensorRT/Makefile
- create mode 100755 TensorRT/Makefile.config
- rename TensorRT/{plugin/bev_pool_v2 => include}/bevPoolKernel.h (94%)
- rename TensorRT/{plugin/bev_pool_v2 => include}/bevPoolPlugin.h (99%)
- rename TensorRT/{common => include}/checkMacrosPlugin.cpp (100%)
- rename TensorRT/{common => include}/checkMacrosPlugin.h (100%)
- rename TensorRT/{common => include}/cuda_helper.cu (100%)
- rename TensorRT/{common => include}/cuda_helper.h (100%)
- rename TensorRT/{common => include}/cuda_int8.h (100%)
- rename TensorRT/{plugin/grid_sampler => include}/gridSamplerKernel.h (100%)
- rename TensorRT/{plugin/grid_sampler => include}/gridSamplerPlugin.h (100%)
- rename TensorRT/{common => include}/helper.h (100%)
- rename TensorRT/{plugin/inverse => include}/inverseKernel.h (100%)
- rename TensorRT/{plugin/inverse => include}/inversePlugin.h (100%)
- rename TensorRT/{plugin/modulated_deformable_conv2d => include}/modulatedDeformableConv2dKernel.h (100%)
- rename TensorRT/{plugin/modulated_deformable_conv2d => include}/modulatedDeformableConv2dPlugin.h (100%)
- rename TensorRT/{plugin/multi_head_attn => include}/multiHeadAttnKernel.h (100%)
- rename TensorRT/{plugin/multi_head_attn => include}/multiHeadAttnPlugin.h (100%)
- rename TensorRT/{plugin/multi_head_attn => include}/multiHeadFlashAttnKernel.h (100%)
- create mode 100644 TensorRT/include/multiScaleDeformableAttnKernel.h
- rename TensorRT/{plugin/multi_scale_deformable_attn => include}/multiScaleDeformableAttnPlugin.h (98%)
- rename TensorRT/{plugin/rotate => include}/rotateKernel.h (100%)
- rename TensorRT/{plugin/rotate => include}/rotatePlugin.h (100%)
- rename TensorRT/{common => include}/serialize.h (100%)
- delete mode 100644 TensorRT/plugin/multi_scale_deformable_attn/multiScaleDeformableAttnKernel.h
+ .../multiScaleDeformableAttnPlugin.h          |    2 +-
+ 9 files changed, 393 insertions(+), 1136 deletions(-)
+ create mode 100644 TensorRT/Makefile
 
 diff --git a/TensorRT/Makefile b/TensorRT/Makefile
-new file mode 100755
-index 0000000..b86c092
+new file mode 100644
+index 0000000..8fb3e43
 --- /dev/null
 +++ b/TensorRT/Makefile
-@@ -0,0 +1,25 @@
-+# SPDX-FileCopyrightText: Copyright (c) 2023-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-+# SPDX-License-Identifier: LicenseRef-NvidiaProprietary
-+#
-+# NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
-+# property and proprietary rights in and to this material, related
-+# documentation and any modifications thereto. Any use, reproduction,
-+# disclosure or distribution of this material and related documentation
-+# without an express license agreement from NVIDIA CORPORATION or
-+# its affiliates is strictly prohibited.
-+
-+SHELL = /bin/bash -o pipefail
-+TARGET ?= $(shell uname -m)
-+VERBOSE ?= 0
-+ifeq ($(VERBOSE), 1)
-+	AT =
-+else
-+	AT = @
-+endif
-+
-+OUTNAME = fb-occ_trt_plugin
-+SRC_FILES = plugin/*/*.cpp
-+CU_FILES = plugin/*/*.cu
-+EXTRA_INCPATHS = -Iinclude
-+MAKEFILE ?= ./Makefile.config
-+include $(MAKEFILE)
-diff --git a/TensorRT/Makefile.config b/TensorRT/Makefile.config
-new file mode 100755
-index 0000000..5dc323a
---- /dev/null
-+++ b/TensorRT/Makefile.config
-@@ -0,0 +1,208 @@
-+# SPDX-FileCopyrightText: Copyright (c) 2023-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-+# SPDX-License-Identifier: LicenseRef-NvidiaProprietary
-+#
-+# NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
-+# property and proprietary rights in and to this material, related
-+# documentation and any modifications thereto. Any use, reproduction,
-+# disclosure or distribution of this material and related documentation
-+# without an express license agreement from NVIDIA CORPORATION or
-+# its affiliates is strictly prohibited.
-+
-+SRC = $(SRC_FILES)
-+
-+EXTRA_DIRECTORIES =
-+EXTRA_FILES =
-+
-+USE_QCC ?= 1
-+CUDA ?= cuda-11.4
-+TARGET ?= $(shell uname -m)
-+
-+.SUFFIXES:
-+CUDA_TRIPLE ?= x86_64-linux
-+DLSW_TRIPLE ?= x86_64-linux-gnu
-+TARGET_RELEASE = $(OUTNAME)_x86_64.so
-+TARGET_DEBUG   = $(OUTNAME)_x86_64_debug.so
-+ifeq ($(TARGET), aarch64)
-+  CUDA_TRIPLE = aarch64-linux
-+  DLSW_TRIPLE = aarch64-linux-gnu
-+  PDK_DIR ?= /drive/drive-linux
-+  TARGET_RELEASE = $(OUTNAME)_aarch64.so
-+  TARGET_DEBUG = $(OUTNAME)_aarch64_debug.so
-+endif
-+
-+ifeq ($(CUDA_INSTALL_DIR),)
-+  CUDA_INSTALL_DIR ?= /usr/local/cuda
-+  $(warning CUDA_INSTALL_DIR variable is not specified, using $(CUDA_INSTALL_DIR) by default, use CUDA_INSTALL_DIR=<cuda_directory> to change.)
-+endif
-+
-+PDK_LIB_DIR :=
-+PDK_INC_DIR :=
-+ifneq ($(PDK_DIR),)
-+  PDK_LIB_DIR := $(PDK_DIR)/lib-target
-+  PDK_INC_DIR := $(PDK_DIR)/include
-+endif
-+
-+ifeq ($(TRT_INC_DIR),)
-+  TRT_INC_DIR ?= /usr/include/$(DLSW_TRIPLE)
-+  $(warning TRT_INC_DIR is not specified, searching $(TRT_INC_DIR) by default, use TRT_INC_DIR=<trt_inc_directory> to change.)
-+endif
-+
-+ifeq ($(TRT_LIB_DIR),)
-+  TRT_LIB_DIR ?= /usr/lib/$(DLSW_TRIPLE)
-+  $(warning TRT_LIB_DIR is not specified, searching $(TRT_LIB_DIR) by default, use TRT_LIB_DIR=<trt_lib_directory> to change.)
-+endif
-+
-+NVCC ?= $(CUDA_INSTALL_DIR)/bin/nvcc
-+
-+ifeq ($(TARGET), aarch64)
-+  ifeq ($(shell uname -m), aarch64)
-+    CC = g++
-+  else
-+    CC = aarch64-linux-gnu-g++
-+  endif
-+  CUCC = $(NVCC) -m64 -ccbin $(CC) --target-directory $(CUDA_TRIPLE)
-+else ifeq ($(TARGET), x86_64)
-+  CC = g++
-+  CUCC = $(NVCC) -m64 --target-directory $(CUDA_TRIPLE)
-+else
-+  $(error Auto-detection of platform failed. Please specify one of the following arguments to make: TARGET=[aarch64|x86_64])
-+endif
-+
-+ifdef VERBOSE
-+  AT=
-+else
-+  AT=@
-+endif
-+
-+AR = ar cr
-+ECHO = @echo
-+
-+SHELL = /bin/sh
-+
-+ROOT_PATH ?= .
-+OUT_PATH = $(ROOT_PATH)/bin/$(TARGET)
-+OUTDIR = $(OUT_PATH)
-+
-+define concat
-+$1$2$3$4$5$6$7$8
-+endef
-+
-+define make-dir
-+  if [ ! -d $1 ]; then mkdir -p $1; fi
-+endef
+@@ -0,0 +1,61 @@
++# Define paths
++CUDA_DIR ?= /usr/local/cuda
++DLSW_TRIPLE = aarch64-linux-gnu
++TRT_LIB_DIR ?= /usr/lib/$(DLSW_TRIPLE)
++TRT_INC_DIR ?= /usr/include/$(DLSW_TRIPLE)
++SYSROOT ?= 
++OUTPUT_DIR ?= build
 +
 +
-+CUDART_LIB = -lcudart
-+NVINFER_LIB = -lnvinfer -lnvinfer_plugin 
 +
++# Compiler and flags
++CXX := aarch64-linux-gnu-g++
++NVCC := $(CUDA_DIR)/bin/nvcc
 +
-+######################
-+INCPATHS=
-+LIBPATHS=
-+COMMON_LIBS=
++CXXFLAGS := -std=c++14 -O3 -Wno-deprecated-declarations -fPIC \
++    -I$(TRT_INC_DIR)/ \
++    -I$(CUDA_DIR)/include \
++    -I$(SYSROOT)/include \
++    -Icommon \
 +
-+ifneq ($(shell uname -m), $(TARGET))
-+  LIBPATHS += -L"/usr/lib/$(DLSW_TRIPLE)/stubs"
-+  LIBPATHS += -L"$(CUDA_INSTALL_DIR)/targets/$(CUDA_TRIPLE)/lib/stubs"
-+else
-+  INCPATHS += -I"$(CUDA_INSTALL_DIR)/include"
-+endif
-+INCPATHS += -I"$(CUDA_INSTALL_DIR)/targets/$(CUDA_TRIPLE)/include"
-+LIBPATHS += -L"$(CUDA_INSTALL_DIR)/targets/$(CUDA_TRIPLE)/lib"
-+INCPATHS += -I"$(TRT_INC_DIR)"
-+LIBPATHS += -L"$(TRT_LIB_DIR)"
++NVCCFLAGS := -std=c++14 --compiler-options '-fPIC' \
++    -I$(TRT_INC_DIR)/ \
++    -I$(CUDA_DIR)/include \
++    -I$(SYSROOT)/include \
++    -Icommon \
++    -gencode arch=compute_87,code=sm_87
 +
-+CU_LIBPATHS ::= $(LIBPATHS)
++NVCCFLAGS += --compiler-bindir=/usr/bin/aarch64-linux-gnu-g++
 +
-+INCPATHS += $(EXTRA_INCPATHS)
++# Library paths and libraries
++LDFLAGS := -L$(TRT_LIB_DIR)  -L$(CUDA_DIR)/targets/aarch64-linux/lib
++LDLIBS := -lnvinfer -lnvinfer_plugin -lcudart 
 +
-+.SUFFIXES:
-+vpath %.h $(EXTRA_DIRECTORIES)
-+vpath %.cpp $(EXTRA_DIRECTORIES)
++# Source and object files
++CPP_SRCS := $(wildcard common/*.cpp plugin/**/*.cpp)
++CU_SRCS := $(wildcard common/*.cu plugin/**/*.cu)
++CPP_OBJS := $(addprefix $(OUTPUT_DIR)/, $(CPP_SRCS:.cpp=.o))
++CU_OBJS := $(addprefix $(OUTPUT_DIR)/, $(CU_SRCS:.cu=.o))
 +
-+COMMON_FLAGS += -Wall -std=c++14
-+COMMON_FLAGS += $(INCPATHS)
++# Output shared library
++OUTPUT_LIB := ./fb-occ_trt_plugin_aarch64.so
 +
++# Rules
++all: $(OUTPUT_DIR) $(OUTPUT_LIB)
 +
-+COMMON_LD_FLAGS += $(LIBPATHS) -L$(OUTDIR) -Wl,-rpath-link="$(TRT_LIB_DIR)" $(STUBS_DIR)
++$(OUTPUT_DIR):
++	mkdir -p $(OUTPUT_DIR)
 +
-+OBJDIR = $(call concat,$(OUTDIR),/chobj)
-+DOBJDIR = $(call concat,$(OUTDIR),/dchobj)
++$(OUTPUT_DIR)/%.o: %.cpp
++	mkdir -p $(dir $@)
++	$(CXX) $(CXXFLAGS) -c $< -o $@
 +
-+COMMON_LIBS += $(CUDART_LIB)
-+COMMON_LIBS += -lrt -ldl -lpthread
++$(OUTPUT_DIR)/%.o: %.cu
++	mkdir -p $(dir $@)
++	$(NVCC) $(NVCCFLAGS) -c $< -o $@
 +
-+CFLAGS = $(COMMON_FLAGS) -fPIC
-+CFLAGSD = $(COMMON_FLAGS) -fPIC -g
-+LFLAGS = $(COMMON_LD_FLAGS) -shared
-+LFLAGSD = $(COMMON_LD_FLAGS) -shared
-+
-+OBJS    =$(patsubst %.cpp, $(OBJDIR)/%.o, $(wildcard $(SRC) $(EXTRA_FILE)))
-+DOBJS   =$(patsubst %.cpp, $(DOBJDIR)/%.o, $(wildcard $(SRC) $(EXTRA_FILE)))
-+CUOBJS  =$(patsubst %.cu, $(OBJDIR)/%.o, $(wildcard $(CU_FILES)))
-+CUDOBJS =$(patsubst %.cu, $(DOBJDIR)/%.o, $(wildcard $(CU_FILES)))
-+
-+ifeq ($(TARGET),$(filter $(TARGET),aarch64))
-+  ifeq ($(CUDA), cuda-11.4)
-+    GENCODES = -gencode arch=compute_87,code=sm_87
-+  else
-+    $(error CUDA version $(CUDA) is not supported, please use cuda-11.4 instead.)
-+  endif
-+else
-+  GENCODES = -arch=sm_70 -gencode=arch=compute_70,code=sm_70 -gencode=arch=compute_75,code=sm_75 -gencode=arch=compute_80,code=sm_80 -gencode=arch=compute_86,code=sm_86
-+endif
-+
-+# Always use C+=14 for nvcc
-+COMMON_CUFLAGS := -std=c++14 -Xcompiler=-fPIC
-+
-+CUFLAGS = $(COMMON_CUFLAGS)
-+CUFLAGS += -Xcompiler=-Wno-deprecated-declarations
-+CUFLAGS += -Xcompiler=-O2,-fno-aggressive-loop-optimizations
-+CUFLAGS += $(GENCODES) -DNDEBUG
-+CUFLAGSD = $(CUFLAGS) -g
-+
-+all: debug release
-+
-+release : $(OUTDIR)/$(TARGET_RELEASE)
-+
-+debug   : $(OUTDIR)/$(TARGET_DEBUG)
-+
-+$(OUTDIR)/$(TARGET_RELEASE) : $(OBJS) $(CUOBJS)
-+	$(call make-dir,$(dir $@))
-+	$(ECHO) Linking: $@
-+	$(AT)$(CC) -o $@ $^ $(LFLAGS) -Wl,--start-group $(NVINFER_LIB) $(COMMON_LIBS) -Wl,--end-group
-+
-+$(OUTDIR)/$(TARGET_DEBUG) : $(DOBJS) $(CUDOBJS)
-+	$(call make-dir,$(dir $@))
-+	$(ECHO) Linking: $@
-+	$(AT)$(CC) -o $@ $^ $(LFLAGSD) -Wl,--start-group $(NVINFER_LIB) $(COMMON_LIBS) -Wl,--end-group
-+
-+$(OBJDIR)/%.o: %.cpp
-+	$(call make-dir,$(dir $@))
-+	$(ECHO) Compiling release: $<
-+	$(AT)$(CC) -o $@ -c $< $(CFLAGS)
-+
-+$(DOBJDIR)/%.o: %.cpp
-+	$(call make-dir,$(dir $@))
-+	$(ECHO) Compiling debug: $<
-+	$(AT)$(CC) -o $@ -c $< $(CFLAGSD)
-+
-+$(OBJDIR)/%.o: %.cu
-+	$(call make-dir,$(dir $@))
-+	$(ECHO) Compiling CUDA release: $<
-+	$(AT)$(CUCC) $(CUFLAGS) $(INCPATHS) $(CU_LIBPATH) -c -o $@ $<
-+
-+$(DOBJDIR)/%.o: %.cu
-+	$(call make-dir,$(dir $@))
-+	$(ECHO) Compiling CUDA debug: $<
-+	$(AT)$(CUCC) $(CUFLAGSD) $(INCPATHS) $(CU_LIBPATH) -c -o $@ $<
-+
-+OBJDIRS = $(OBJDIR)/$(EXTRA_DIRECTORIES) $(OBJDIR) $(DOBJDIR) $(OUTDIR)/$(TARGET_RELEASE) $(OUTDIR)/$(TARGET_DEBUG)
++$(OUTPUT_LIB): $(CPP_OBJS) $(CU_OBJS)
++	$(CXX) -shared -o $@ $^ $(LDFLAGS) $(LDLIBS)
 +
 +clean:
-+	$(ECHO) Cleaning...
-+	$(AT)-rm -rf $(OBJDIRS)
-+
-+ifneq "$(MAKECMDGOALS)" "clean"
-+  -include $(OBJDIR)/*.d $(DOBJDIR)/*.d
-+endif
-diff --git a/TensorRT/plugin/bev_pool_v2/bevPoolKernel.h b/TensorRT/include/bevPoolKernel.h
-similarity index 94%
-rename from TensorRT/plugin/bev_pool_v2/bevPoolKernel.h
-rename to TensorRT/include/bevPoolKernel.h
++	rm -rf $(OUTPUT_DIR)
+\ No newline at end of file
+diff --git a/TensorRT/plugin/bev_pool_v2/bevPoolKernel.h b/TensorRT/plugin/bev_pool_v2/bevPoolKernel.h
 index e23eb81..f8f57c7 100644
 --- a/TensorRT/plugin/bev_pool_v2/bevPoolKernel.h
-+++ b/TensorRT/include/bevPoolKernel.h
++++ b/TensorRT/plugin/bev_pool_v2/bevPoolKernel.h
 @@ -1,6 +1,3 @@
 -//
 -// Created by Derry Lin on 2023/5/11.
@@ -326,143 +102,6 @@ index e23eb81..f8f57c7 100644
 -#endif // TENSORRT_OPS_BEVPOOLKERNEL_H
 +#endif // TENSORRT_OPS_BEVPOOLKERNEL_H
 \ No newline at end of file
-diff --git a/TensorRT/plugin/bev_pool_v2/bevPoolPlugin.h b/TensorRT/include/bevPoolPlugin.h
-similarity index 99%
-rename from TensorRT/plugin/bev_pool_v2/bevPoolPlugin.h
-rename to TensorRT/include/bevPoolPlugin.h
-index 75663cd..16bdb93 100644
---- a/TensorRT/plugin/bev_pool_v2/bevPoolPlugin.h
-+++ b/TensorRT/include/bevPoolPlugin.h
-@@ -136,4 +136,4 @@ private:
- 
- } // namespace trt_plugin
- 
--#endif // TENSORRT_OPS_BEVPOOLPLUGIN_H
-+#endif // TENSORRT_OPS_BEVPOOLPLUGIN_H
-\ No newline at end of file
-diff --git a/TensorRT/common/checkMacrosPlugin.cpp b/TensorRT/include/checkMacrosPlugin.cpp
-similarity index 100%
-rename from TensorRT/common/checkMacrosPlugin.cpp
-rename to TensorRT/include/checkMacrosPlugin.cpp
-diff --git a/TensorRT/common/checkMacrosPlugin.h b/TensorRT/include/checkMacrosPlugin.h
-similarity index 100%
-rename from TensorRT/common/checkMacrosPlugin.h
-rename to TensorRT/include/checkMacrosPlugin.h
-diff --git a/TensorRT/common/cuda_helper.cu b/TensorRT/include/cuda_helper.cu
-similarity index 100%
-rename from TensorRT/common/cuda_helper.cu
-rename to TensorRT/include/cuda_helper.cu
-diff --git a/TensorRT/common/cuda_helper.h b/TensorRT/include/cuda_helper.h
-similarity index 100%
-rename from TensorRT/common/cuda_helper.h
-rename to TensorRT/include/cuda_helper.h
-diff --git a/TensorRT/common/cuda_int8.h b/TensorRT/include/cuda_int8.h
-similarity index 100%
-rename from TensorRT/common/cuda_int8.h
-rename to TensorRT/include/cuda_int8.h
-diff --git a/TensorRT/plugin/grid_sampler/gridSamplerKernel.h b/TensorRT/include/gridSamplerKernel.h
-similarity index 100%
-rename from TensorRT/plugin/grid_sampler/gridSamplerKernel.h
-rename to TensorRT/include/gridSamplerKernel.h
-diff --git a/TensorRT/plugin/grid_sampler/gridSamplerPlugin.h b/TensorRT/include/gridSamplerPlugin.h
-similarity index 100%
-rename from TensorRT/plugin/grid_sampler/gridSamplerPlugin.h
-rename to TensorRT/include/gridSamplerPlugin.h
-diff --git a/TensorRT/common/helper.h b/TensorRT/include/helper.h
-similarity index 100%
-rename from TensorRT/common/helper.h
-rename to TensorRT/include/helper.h
-diff --git a/TensorRT/plugin/inverse/inverseKernel.h b/TensorRT/include/inverseKernel.h
-similarity index 100%
-rename from TensorRT/plugin/inverse/inverseKernel.h
-rename to TensorRT/include/inverseKernel.h
-diff --git a/TensorRT/plugin/inverse/inversePlugin.h b/TensorRT/include/inversePlugin.h
-similarity index 100%
-rename from TensorRT/plugin/inverse/inversePlugin.h
-rename to TensorRT/include/inversePlugin.h
-diff --git a/TensorRT/plugin/modulated_deformable_conv2d/modulatedDeformableConv2dKernel.h b/TensorRT/include/modulatedDeformableConv2dKernel.h
-similarity index 100%
-rename from TensorRT/plugin/modulated_deformable_conv2d/modulatedDeformableConv2dKernel.h
-rename to TensorRT/include/modulatedDeformableConv2dKernel.h
-diff --git a/TensorRT/plugin/modulated_deformable_conv2d/modulatedDeformableConv2dPlugin.h b/TensorRT/include/modulatedDeformableConv2dPlugin.h
-similarity index 100%
-rename from TensorRT/plugin/modulated_deformable_conv2d/modulatedDeformableConv2dPlugin.h
-rename to TensorRT/include/modulatedDeformableConv2dPlugin.h
-diff --git a/TensorRT/plugin/multi_head_attn/multiHeadAttnKernel.h b/TensorRT/include/multiHeadAttnKernel.h
-similarity index 100%
-rename from TensorRT/plugin/multi_head_attn/multiHeadAttnKernel.h
-rename to TensorRT/include/multiHeadAttnKernel.h
-diff --git a/TensorRT/plugin/multi_head_attn/multiHeadAttnPlugin.h b/TensorRT/include/multiHeadAttnPlugin.h
-similarity index 100%
-rename from TensorRT/plugin/multi_head_attn/multiHeadAttnPlugin.h
-rename to TensorRT/include/multiHeadAttnPlugin.h
-diff --git a/TensorRT/plugin/multi_head_attn/multiHeadFlashAttnKernel.h b/TensorRT/include/multiHeadFlashAttnKernel.h
-similarity index 100%
-rename from TensorRT/plugin/multi_head_attn/multiHeadFlashAttnKernel.h
-rename to TensorRT/include/multiHeadFlashAttnKernel.h
-diff --git a/TensorRT/include/multiScaleDeformableAttnKernel.h b/TensorRT/include/multiScaleDeformableAttnKernel.h
-new file mode 100644
-index 0000000..6332669
---- /dev/null
-+++ b/TensorRT/include/multiScaleDeformableAttnKernel.h
-@@ -0,0 +1,30 @@
-+//
-+// Created by Derry Lin on 2022/11/7.
-+//
-+
-+#ifndef TENSORRT_OPS_MULTISCALEDEFORMABLEATTNKERNEL_H
-+#define TENSORRT_OPS_MULTISCALEDEFORMABLEATTNKERNEL_H
-+
-+#include "cuda_int8.h"
-+#include <cuda_fp16.h>
-+#include <cuda_runtime.h>
-+
-+template <typename T>
-+void ms_deformable_im2col_cuda(
-+    const T *data_value, 
-+    const int *data_spatial_shapes,
-+    const int *data_level_start_index, 
-+    const T *data_sampling_loc,
-+    const T *data_attn_weight, 
-+    const int batch_size, 
-+    const int spatial_size,
-+    const int num_heads, 
-+    const int channels, 
-+    const int num_levels,
-+    const int num_query, 
-+    const int num_point,
-+    T *data_col, 
-+    cudaStream_t stream);
-+    
-+
-+#endif // TENSORRT_OPS_MULTISCALEDEFORMABLEATTNKERNEL_H
-\ No newline at end of file
-diff --git a/TensorRT/plugin/multi_scale_deformable_attn/multiScaleDeformableAttnPlugin.h b/TensorRT/include/multiScaleDeformableAttnPlugin.h
-similarity index 98%
-rename from TensorRT/plugin/multi_scale_deformable_attn/multiScaleDeformableAttnPlugin.h
-rename to TensorRT/include/multiScaleDeformableAttnPlugin.h
-index c93610b..8794e32 100644
---- a/TensorRT/plugin/multi_scale_deformable_attn/multiScaleDeformableAttnPlugin.h
-+++ b/TensorRT/include/multiScaleDeformableAttnPlugin.h
-@@ -132,4 +132,4 @@ private:
- };
- } // namespace trt_plugin
- 
--#endif // TENSORRT_OPS_MULTISCALEDEFORMABLEATTN_H
-+#endif // TENSORRT_OPS_MULTISCALEDEFORMABLEATTN_H
-\ No newline at end of file
-diff --git a/TensorRT/plugin/rotate/rotateKernel.h b/TensorRT/include/rotateKernel.h
-similarity index 100%
-rename from TensorRT/plugin/rotate/rotateKernel.h
-rename to TensorRT/include/rotateKernel.h
-diff --git a/TensorRT/plugin/rotate/rotatePlugin.h b/TensorRT/include/rotatePlugin.h
-similarity index 100%
-rename from TensorRT/plugin/rotate/rotatePlugin.h
-rename to TensorRT/include/rotatePlugin.h
-diff --git a/TensorRT/common/serialize.h b/TensorRT/include/serialize.h
-similarity index 100%
-rename from TensorRT/common/serialize.h
-rename to TensorRT/include/serialize.h
 diff --git a/TensorRT/plugin/bev_pool_v2/bevPoolPlugin.cpp b/TensorRT/plugin/bev_pool_v2/bevPoolPlugin.cpp
 index 3aae089..bdec92f 100644
 --- a/TensorRT/plugin/bev_pool_v2/bevPoolPlugin.cpp
@@ -634,8 +273,19 @@ index 3aae089..bdec92f 100644
  void BEVPoolPlugin::setPluginNamespace(const char *pluginNamespace) noexcept {
    mPluginNamespace = pluginNamespace;
  }
+diff --git a/TensorRT/plugin/bev_pool_v2/bevPoolPlugin.h b/TensorRT/plugin/bev_pool_v2/bevPoolPlugin.h
+index 75663cd..16bdb93 100644
+--- a/TensorRT/plugin/bev_pool_v2/bevPoolPlugin.h
++++ b/TensorRT/plugin/bev_pool_v2/bevPoolPlugin.h
+@@ -136,4 +136,4 @@ private:
+ 
+ } // namespace trt_plugin
+ 
+-#endif // TENSORRT_OPS_BEVPOOLPLUGIN_H
++#endif // TENSORRT_OPS_BEVPOOLPLUGIN_H
+\ No newline at end of file
 diff --git a/TensorRT/plugin/grid_sampler/gridSamplerPlugin.cpp b/TensorRT/plugin/grid_sampler/gridSamplerPlugin.cpp
-index cc52952..0685125 100644
+index cc52952..66b03dd 100644
 --- a/TensorRT/plugin/grid_sampler/gridSamplerPlugin.cpp
 +++ b/TensorRT/plugin/grid_sampler/gridSamplerPlugin.cpp
 @@ -121,6 +121,7 @@ int32_t GridSamplerPlugin::enqueue(const nvinfer1::PluginTensorDesc *inputDesc,
@@ -646,22 +296,6 @@ index cc52952..0685125 100644
  
    switch (data_type) {
    case DataType::kFLOAT:
-@@ -130,12 +131,15 @@ int32_t GridSamplerPlugin::enqueue(const nvinfer1::PluginTensorDesc *inputDesc,
-                        mMode, mPaddingMode, mAlignCorners, stream);
-     break;
-   case DataType::kHALF:
-+    printf("Entered case DataType::kHALF\n");
-     if (use_h2) {
-+      printf("Using __half2 for grid_sample\n");
-       grid_sample<__half2>(
-           (__half2 *)outputs[0], (__half2 *)inputs[0], (__half2 *)inputs[1],
-           &(output_dims.d[0]), &(input_dims.d[0]), &(grid_dims.d[0]),
-           input_dims.nbDims, mMode, mPaddingMode, mAlignCorners, stream);
-     } else {
-+      printf("Using __half for grid_sample\n");
-       grid_sample<__half>(
-           (__half *)outputs[0], (__half *)inputs[0], (__half *)inputs[1],
-           &(output_dims.d[0]), &(input_dims.d[0]), &(grid_dims.d[0]),
 diff --git a/TensorRT/plugin/multi_scale_deformable_attn/multiScaleDeformableAttnKernel.cu b/TensorRT/plugin/multi_scale_deformable_attn/multiScaleDeformableAttnKernel.cu
 index e1a70ac..8b5fbbe 100644
 --- a/TensorRT/plugin/multi_scale_deformable_attn/multiScaleDeformableAttnKernel.cu
@@ -2006,24 +1640,13 @@ index e1a70ac..8b5fbbe 100644
 +    __half *data_col, 
      cudaStream_t stream);
 diff --git a/TensorRT/plugin/multi_scale_deformable_attn/multiScaleDeformableAttnKernel.h b/TensorRT/plugin/multi_scale_deformable_attn/multiScaleDeformableAttnKernel.h
-deleted file mode 100644
-index 78785d1..0000000
+index 78785d1..6332669 100644
 --- a/TensorRT/plugin/multi_scale_deformable_attn/multiScaleDeformableAttnKernel.h
-+++ /dev/null
-@@ -1,40 +0,0 @@
--//
--// Created by Derry Lin on 2022/11/7.
--//
--
--#ifndef TENSORRT_OPS_MULTISCALEDEFORMABLEATTNKERNEL_H
--#define TENSORRT_OPS_MULTISCALEDEFORMABLEATTNKERNEL_H
--
--#include "cuda_int8.h"
--#include <cuda_fp16.h>
--#include <cuda_runtime.h>
--
--template <typename T>
--void ms_deformable_im2col_cuda(
++++ b/TensorRT/plugin/multi_scale_deformable_attn/multiScaleDeformableAttnKernel.h
+@@ -11,30 +11,20 @@
+ 
+ template <typename T>
+ void ms_deformable_im2col_cuda(
 -    const T *data_value, const int32_t *data_spatial_shapes,
 -    const T *data_reference_points, const T *data_sampling_offsets,
 -    const T *data_attn_weight, const int batch_size, const int spatial_size,
@@ -2048,9 +1671,25 @@ index 78785d1..0000000
 -    const int spatial_size, const int num_heads, int channels,
 -    const int num_levels, const int num_query, const int num_point,
 -    const int points_per_group, int8_4 *data_col, float scale_out,
--    cudaStream_t stream);
--
++    const T *data_value, 
++    const int *data_spatial_shapes,
++    const int *data_level_start_index, 
++    const T *data_sampling_loc,
++    const T *data_attn_weight, 
++    const int batch_size, 
++    const int spatial_size,
++    const int num_heads, 
++    const int channels, 
++    const int num_levels,
++    const int num_query, 
++    const int num_point,
++    T *data_col, 
+     cudaStream_t stream);
++    
+ 
 -#endif // TENSORRT_OPS_MULTISCALEDEFORMABLEATTNKERNEL_H
++#endif // TENSORRT_OPS_MULTISCALEDEFORMABLEATTNKERNEL_H
+\ No newline at end of file
 diff --git a/TensorRT/plugin/multi_scale_deformable_attn/multiScaleDeformableAttnPlugin.cpp b/TensorRT/plugin/multi_scale_deformable_attn/multiScaleDeformableAttnPlugin.cpp
 index 67886e0..d8434e6 100644
 --- a/TensorRT/plugin/multi_scale_deformable_attn/multiScaleDeformableAttnPlugin.cpp
@@ -2174,6 +1813,17 @@ index 67886e0..d8434e6 100644
             inOut[pos].format == nvinfer1::TensorFormat::kLINEAR;
    case 3:
      return inOut[pos].type == inOut[0].type &&
+diff --git a/TensorRT/plugin/multi_scale_deformable_attn/multiScaleDeformableAttnPlugin.h b/TensorRT/plugin/multi_scale_deformable_attn/multiScaleDeformableAttnPlugin.h
+index c93610b..8794e32 100644
+--- a/TensorRT/plugin/multi_scale_deformable_attn/multiScaleDeformableAttnPlugin.h
++++ b/TensorRT/plugin/multi_scale_deformable_attn/multiScaleDeformableAttnPlugin.h
+@@ -132,4 +132,4 @@ private:
+ };
+ } // namespace trt_plugin
+ 
+-#endif // TENSORRT_OPS_MULTISCALEDEFORMABLEATTN_H
++#endif // TENSORRT_OPS_MULTISCALEDEFORMABLEATTN_H
+\ No newline at end of file
 -- 
 2.25.1
 

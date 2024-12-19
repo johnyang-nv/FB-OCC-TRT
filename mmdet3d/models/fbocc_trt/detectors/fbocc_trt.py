@@ -1,3 +1,9 @@
+# Copyright (c) 2022-2024, NVIDIA Corporation & Affiliates. All rights reserved. 
+# 
+# This work is made available under the Nvidia Source Code License-NC. 
+# To view a copy of this license, visit 
+# https://github.com/NVlabs/FB-BEV/blob/main/LICENSE
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F

@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2023, NVIDIA Corporation & Affiliates. All rights reserved. 
+# Copyright (c) 2022-2024, NVIDIA Corporation & Affiliates. All rights reserved. 
 # 
 # This work is made available under the Nvidia Source Code License-NC. 
 # To view a copy of this license, visit 
@@ -6,8 +6,8 @@
 
 
 # we follow the online training settings  from solofusion
-num_gpus = 16
-samples_per_gpu = 4
+num_gpus = 1
+samples_per_gpu = 1
 num_iters_per_epoch = int(28130 // (num_gpus * samples_per_gpu) * 4.554)
 num_epochs = 20
 checkpoint_epoch_interval = 1
@@ -35,7 +35,7 @@ history_cat_conv_out_channels = 160
 
 # Copyright (c) Phigent Robotics. All rights reserved.
 
-_base_ = ['../_base_/datasets/nus-3d.py', '../_base_/default_runtime.py']
+_base_ = ['../../occupancy_configs/_base_/datasets/nus-3d.py', '../../occupancy_configs/_base_/default_runtime.py']
 # Global
 # If point cloud range is changed, the models should also change their point
 # cloud range accordingly
@@ -70,8 +70,8 @@ bda_aug_conf = dict(
     flip_dx_ratio=0.5,
     flip_dy_ratio=0.5)
 
-use_checkpoint = True
-sync_bn = True
+use_checkpoint = False
+sync_bn = False
 
 
 # Model
@@ -109,7 +109,7 @@ voxel_channels = [64, 64*2, 64*4]
 
 
 model = dict(
-    type='FBOCC',
+    type='FBOCCTRT',
     use_depth_supervision=True,
     fix_void=fix_void,
     do_history = do_history,
@@ -117,7 +117,7 @@ model = dict(
     single_bev_num_channels=numC_Trans,
     readd=True,
     img_backbone=dict(
-        pretrained='ckpts/resnet50-0676ba61.pth',
+        pretrained='ckpts/r50_256x705_depth_pretrain.pth',
         type='ResNet',
         depth=50,
         num_stages=4,
@@ -153,7 +153,7 @@ model = dict(
         downsample=16),
     frpn=None,
     backward_projection=dict(
-        type='BackwardProjection',
+        type='BackwardProjectionTRT',
         bev_h=bev_h_,
         bev_w=bev_w_,
         in_channels=numC_Trans,
@@ -174,17 +174,17 @@ model = dict(
                     type='BEVFormerEncoderLayer',
                     attn_cfgs=[
                         dict(
-                            type='MultiScaleDeformableAttention',
+                            type='MultiScaleDeformableAttentionTRT',
                             embed_dims=numC_Trans,
                             dropout=0.0,
                             num_levels=1),
                         dict(
-                            type='DA_SpatialCrossAttention',
+                            type='DA_SpatialCrossAttentionTRT',
                             pc_range=point_cloud_range,
                             dbound=[2.0, 42.0, 0.5],
                             dropout=0.0,
                             deformable_attention=dict(
-                                type='DA_MSDeformableAttention',
+                                type='DA_MSDeformableAttentionTRT',
                                 embed_dims=numC_Trans,
                                 num_points=8,
                                 num_levels=_num_levels_),
@@ -214,25 +214,25 @@ model = dict(
     img_bev_encoder_backbone=dict(
         type='CustomResNet3D',
         depth=18,
-        with_cp=use_checkpoint,
+        with_cp=False,
         block_strides=[1, 2, 2],
         n_input_channels=numC_Trans,
         block_inplanes=voxel_channels,
         out_indices=voxel_out_indices,
-        norm_cfg=dict(type='SyncBN', requires_grad=True),
+        norm_cfg=dict(type='BN3d', requires_grad=True),
     ),
     img_bev_encoder_neck=dict(
         type='FPN3D',
-        with_cp=use_checkpoint,
+        with_cp=False,
         in_channels=voxel_channels,
         out_channels=voxel_out_channel,
-        norm_cfg=dict(type='SyncBN', requires_grad=True),
+        norm_cfg=dict(type='BN3d', requires_grad=True),
     ),
     occupancy_head= dict(
         type='OccHead',
-        with_cp=use_checkpoint,
+        with_cp=False,
         use_focal_loss=True,
-        norm_cfg=dict(type='SyncBN', requires_grad=True),
+        norm_cfg=dict(type='BN3d', requires_grad=True),
         soft_weights=True,
         final_occ_size=occ_size,
         empty_idx=empty_idx,
@@ -253,7 +253,7 @@ model = dict(
 dataset_type = 'NuScenesDataset'
 data_root = 'data/nuscenes/'
 file_client_args = dict(backend='disk')
-occupancy_path = '/mount/data/occupancy_cvpr2023/gts'
+occupancy_path = 'data/nuscenes/gts'
 
 
 train_pipeline = [
@@ -323,7 +323,6 @@ share_data_config = dict(
     occupancy_path=occupancy_path,
     use_sequence_group_flag=True,
 )
-
 test_data_config = dict(
     pipeline=test_pipeline,
     sequences_split_num=test_sequences_split_num,
@@ -337,7 +336,6 @@ data = dict(
         type=dataset_type,
         data_root=data_root,
         ann_file=data_root + 'bevdetv2-nuscenes_infos_train.pkl',
-        pipeline=train_pipeline,
         classes=class_names,
         test_mode=False,
         use_valid_flag=True,
@@ -392,3 +390,9 @@ custom_hooks = [
 ]
 load_from = 'ckpts/r50_256x705_depth_pretrain.pth'
 fp16 = dict(loss_scale='dynamic')
+
+output_shapes = dict(
+                output_history_bev=[1, 1280, 8, 100, 100],
+                output_history_seq_ids=[1,],
+                output_history_sweep_time=[1, 16],
+                pred_occupancy=[1, 19, 200, 200, 16])

@@ -8,6 +8,7 @@ import time
 from mmdet3d.models import (Base3DDetector, Base3DSegmentor,
                             SingleStageMono3DDetector)
 
+
 def single_gpu_test(model,
                     data_loader,
                     show=False,
@@ -37,7 +38,7 @@ def single_gpu_test(model,
     for i, data in enumerate(data_loader):
         with torch.no_grad():
             result = model(return_loss=False, rescale=True, **data)
-            
+
         if show:
             # Visualize the results of MMDetection3D model
             # 'show_results' is MMdetection3D visualization API

@@ -5,7 +5,9 @@ This section provides the workflow to deploy  **FB-OCC** on the NVIDIA DRIVE pla
 
 ## Occupancy Prediction on NuScenes dataset
 
-   All models utilized the [FB-OCC configuration](../occupancy_configs/fb_occ/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.py), a modified version of the [original configuration](../occupancy_configs/fb_occ/fbocc-r50-cbgs_depth_16f_16x4_20e.py) designed for TensorRT compatibility.
+   The model [configuration](../occupancy_configs/fb_occ/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.py) to export ONNX file for TensorRT inference is based on the [original configuration](../occupancy_configs/fb_occ/fbocc-r50-cbgs_depth_16f_16x4_20e.py) with modifications.
+
+
    - Input resolution: 6 cameras with resolution 256 × 704, forming an input tensor of size 6 × 3 × 256 × 704.
    - Backbone: ResNet-50, consistent with the original configuration.
    - Latency benchmarks on **NVIDIA DRIVE Orin** are measured with NuScenes validation samples.
@@ -49,7 +51,7 @@ This section provides the workflow to deploy  **FB-OCC** on the NVIDIA DRIVE pla
    git apply fb-occ_custom_op_functions.patch
    ```
 
-2. **Generating the ONNX File**
+2. **Export ONNX file and save input data**
 
    Run the following command to create the ONNX file for FB-OCC:
    ```bash
@@ -107,8 +109,7 @@ This section provides the workflow to deploy  **FB-OCC** on the NVIDIA DRIVE pla
    
 ## Build TensorRT Engine on DRIVE Orin
 
-To create the TensorRT engine, confirm that the DRIVE Orin platform is set up with NVIDIA DRIVE OS. 
-Use the [flashing procedures](https://developer.nvidia.com/drive/downloads) to prepare the target system.
+For more details, please refer to [Installation Guide](https://developer.nvidia.com/docs/drive/drive-os/6.0.10/public/drive-os-linux-installation/index.html) to prepare the target.
 
 
 1. **Prepare and Transfer Required Files**

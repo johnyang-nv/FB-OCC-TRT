@@ -46,6 +46,8 @@ This section provides the workflow to deploy  **FB-OCC** on the NVIDIA DRIVE pla
    git apply /path/to/FB-BEV/deployment/fb-occ_custom_op_trt_plugin.patch
    
    # Copy BEVFormer_tensorrt functions to the FB-OCC workspace
+   cd /path/to/FB-BEV/deployment
+   mkdir custom_op_functions
    cp /path/to/BEVFormer_tensorrt/det2trt/models/functions/*.py /path/to/FB-BEV/deployment/custom_op_functions/
    ```
 
@@ -53,6 +55,7 @@ This section provides the workflow to deploy  **FB-OCC** on the NVIDIA DRIVE pla
 
    Run the following command to create the ONNX file for FB-OCC:
    ```bash
+   cd /path/to/FB-BEV/ 
    python deployment/pth2onnx.py occupancy_configs/fb_occ/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.py
    ```
 

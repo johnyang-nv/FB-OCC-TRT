@@ -39,15 +39,14 @@ This section provides the workflow to deploy  **FB-OCC** on the NVIDIA DRIVE pla
    git checkout 303d314
    ```
 
-   Those [scripts](https://github.com/DerryHub/BEVFormer_tensorrt/tree/303d3140c14016047c07f9db73312af364f0dd7c/det2trt/models/functions) shall be copied into your workspace and adjusted for FB-OCC by following those steps:
+   Those [scripts](https://github.com/DerryHub/BEVFormer_tensorrt/tree/303d3140c14016047c07f9db73312af364f0dd7c/det2trt/models/functions) shall be adjusted for FB-OCC and copied into your workspace by following those steps:
 
    ```bash
+   # Apply the patch for FB-OCC
+   git apply /path/to/FB-BEV/deployment/fb-occ_custom_op_trt_plugin.patch
+   
    # Copy BEVFormer_tensorrt functions to the FB-OCC workspace
    cp /path/to/BEVFormer_tensorrt/det2trt/models/functions/*.py /path/to/FB-BEV/deployment/custom_op_functions/
-
-   # Navigate to the target directory and apply the patch for FB-OCC
-   cd /path/to/FB-BEV/deployment/custom_op_functions/
-   git apply fb-occ_custom_op_functions.patch
    ```
 
 2. **Export ONNX file and save input data**
@@ -67,23 +66,9 @@ This section provides the workflow to deploy  **FB-OCC** on the NVIDIA DRIVE pla
    This model is to be deployed on NVIDIA DRIVE Orin with TensorRT 8.6.13.3, which can be downloaded from [NVIDIA DRIVE site](https://developer.nvidia.com/drive/downloads). 
    Please refer to [DRIVE AGX SDK Developer Program](https://developer.nvidia.com/drive/agx-sdk-program) for access to the SDKs.
    
+   The patch applied in the previous section updates the plugin files in the `TensorRT/` directory to comply with FB-OCC requirements and ensure compatibility with TensorRT.
 
-1. **Modify plugin implementation**
-
-   To compile the plugins for the required custom operations, apply the provided patch to adapt the plugins for FB-OCC:
-
-   ```bash
-   # Navigate to the BEVFormer_tensorrt directory
-   cd /path/to/BEVFormer_tensorrt
-
-   # Apply the patch for TensorRT plugins
-   git apply /path/to/FB-BEV/deployment/plugins/fb-occ_trt_plugin.patch
-   ```
-      
-   The patch updates the plugin files in the `TensorRT/` directory to align with FB-OCC requirements and ensure compatibility with TensorRT.
-         
-
-2. **Set Up the Environment**
+1. **Set Up the Environment**
 
    We recommend using the NVIDIA DRIVE docker image with a pre-configured environment for cross-compilation.
 
@@ -94,12 +79,12 @@ This section provides the workflow to deploy  **FB-OCC** on the NVIDIA DRIVE pla
      nvcr.io/drive/driveos-sdk/drive-agx-orin-linux-aarch64-sdk-build-x86:6.0.10.0-0009
    ```
 
-3. **Cross-compile plugins**
+2. **Cross-compile plugins**
 
    Inside the Docker container, execute the following commands to install the necessary components and build the plugins:   
    ```bash
    cd /BEVFormer_tensorrt/TensorRT/
-   make TARGET=aarch64
+   make
    ```
 
    After compilation, the plugin file will be generated at `/drive/bin/aarch64/fb-occ_trt_plugin_aarch64.so`. 

@@ -7,7 +7,6 @@ This section provides the workflow to deploy  **FB-OCC** on the NVIDIA DRIVE pla
 
    The model [configuration](../occupancy_configs/fb_occ/fbocc-r50-cbgs_depth_16f_16x4_20e_trt.py) to export ONNX file for TensorRT inference is based on the [original configuration](../occupancy_configs/fb_occ/fbocc-r50-cbgs_depth_16f_16x4_20e.py) with modifications.
 
-
    - Input resolution: 6 cameras with resolution 256 × 704, forming an input tensor of size 6 × 3 × 256 × 704.
    - Backbone: ResNet-50, consistent with the original configuration.
    - Latency benchmarks on **NVIDIA DRIVE Orin** are measured with NuScenes validation samples.
@@ -16,7 +15,7 @@ This section provides the workflow to deploy  **FB-OCC** on the NVIDIA DRIVE pla
 
       |    Model  |    Framework                  | Precision     | mIoU              |  Latency (ms)   |
       |-----------|-----------|---------------|-------------------|--------------------------------------|
-      | FB-OCC|[PyTorch](https://github.com/NVlabs/FB-BEV/tree/main?tab=readme-ov-file#model-zoo)       | FP32          | 39.10             | -                                    |
+      | FB-OCC|[PyTorch](https://github.com/NVlabs/FB-BEV/tree/main?tab=readme-ov-file#model-zoo)       | FP32          | 39.10             | 767.85                                   |
       | FB-OCC|TensorRT      | FP32          | 38.90             | 197.89                               |
       | FB-OCC|TensorRT      | FP16          | 38.86             | 138.62                               |
 

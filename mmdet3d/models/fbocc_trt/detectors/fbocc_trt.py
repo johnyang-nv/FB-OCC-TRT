@@ -153,7 +153,7 @@ class FBOCCTRT(FBOCC):
                                     ranks_feat, 
                                     ranks_bev,  
                                     interval_starts, 
-                                    interval_lengths).permute(0, 4, 2, 3, 1)
+                                    interval_lengths)
         
         # backward_projection
         bev_feat_refined = self.backward_projection_trt(feat,
